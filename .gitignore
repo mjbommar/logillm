@@ -1,0 +1,49 @@
+# Python-generated files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+wheels/
+*.egg-info
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# Logs and temporary files
+*.log
+logs/
+debug_output.log
+benchmark_output.log
+*.tmp
+*.bak
+
+# Results
+benchmarks/results/*.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+
+# Reference materials
+reference/**/node_modules/
+reference/**/.git/

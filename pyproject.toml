@@ -1,0 +1,177 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "logillm"
+version = "0.1.0"
+description = "A generic, high-performance, low-dependency LLM programming framework"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "LogiLLM Contributors", email = "logillm@example.com" }
+]
+keywords = [
+    "llm",
+    "language-models",
+    "ai",
+    "machine-learning",
+    "prompt-engineering",
+    "optimization",
+    "dspy-inspired",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+# Core dependencies - keeping it minimal
+dependencies = []
+
+[project.optional-dependencies]
+# Provider integrations - only install what you need
+openai = [
+    "openai>=1.100.2",
+]
+anthropic = [
+    "anthropic>=0.39.0",
+]
+google = [
+    "google-genai>=0.3.0",
+]
+all = [
+    "logillm[openai,anthropic,google]",
+]
+
+# Development dependencies - only for LogiLLM contributors  
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "pytest-cov>=4.0",
+    "pytest-timeout>=2.2.0",
+    "ruff>=0.1",
+    "mypy>=1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/example/logillm"
+Documentation = "https://logillm.readthedocs.io"
+Repository = "https://github.com/example/logillm"
+Issues = "https://github.com/example/logillm/issues"
+
+[tool.setuptools]
+packages = ["logillm"]
+
+[tool.setuptools.package-data]
+logillm = ["py.typed"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+]
+ignore = [
+    "E501",  # Line too long (handled by black)
+    "B008",  # Do not perform function calls in argument defaults
+    "B905",  # `zip()` without an explicit `strict=` parameter
+    "F403",  # star imports in __init__.py files are ok
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]  # Allow unused and star imports in __init__ files
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+    ".venv",
+    "venv",
+]
+
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_any_unimported = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+check_untyped_defs = true
+strict_equality = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+markers = [
+    "integration: mark test as requiring real API calls (deselect with '-m \"not integration\"')",
+    "unit: mark test as a fast unit test without external dependencies",
+    "slow: mark test as slow (takes more than 30 seconds)",
+    "openai: mark test as requiring OpenAI API key",
+    "anthropic: mark test as requiring Anthropic API key",
+]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--timeout=30",  # Default timeout of 30 seconds per test
+    "--timeout-method=thread",  # Use thread method for better async support
+]
+# Timeout settings
+timeout = 30  # Default timeout in seconds
+timeout_method = "thread"  # Better for async tests
+
+[tool.coverage.run]
+source = ["logillm"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "pass",
+    "except ImportError:",
+    "@abstractmethod",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.17.1",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.2.1",
+    "pytest-timeout>=2.4.0",
+    "ruff>=0.12.10",
+]
