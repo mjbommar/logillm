@@ -1,16 +1,16 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "logillm"
 version = "0.1.0"
-description = "A generic, high-performance, low-dependency LLM programming framework"
+description = "A generic, high-performance, low-dependency LLM programming framework inspired by dspy"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [
-    { name = "LogiLLM Contributors", email = "logillm@example.com" }
+    { name = "Michael Bommarito", email = "michael.bommarito@gmail.com" }
 ]
 keywords = [
     "llm",
@@ -32,6 +32,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",   
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
@@ -54,27 +55,27 @@ all = [
     "logillm[openai,anthropic,google]",
 ]
 
-# Development dependencies - only for LogiLLM contributors  
-dev = [
-    "pytest>=7.0",
-    "pytest-asyncio>=0.21",
-    "pytest-cov>=4.0",
-    "pytest-timeout>=2.2.0",
-    "ruff>=0.1",
-    "mypy>=1.0",
-]
 
 [project.urls]
-Homepage = "https://github.com/example/logillm"
-Documentation = "https://logillm.readthedocs.io"
-Repository = "https://github.com/example/logillm"
-Issues = "https://github.com/example/logillm/issues"
+Homepage = "https://github.com/mjbommar/logillm"
+Documentation = "https://michaelbommarito.com/"
+Repository = "https://github.com/mjbommar/logillm"
+Issues = "https://github.com/mjbommar/logillm/issues"
 
-[tool.setuptools]
+[tool.hatch.build.targets.sdist]
+include = [
+    "/logillm",
+    "/README.md",
+    "/LICENSE",
+    "/docs",
+    "/examples",
+]
+
+[tool.hatch.build.targets.wheel]
 packages = ["logillm"]
 
-[tool.setuptools.package-data]
-logillm = ["py.typed"]
+[tool.hatch.build.targets.wheel.sources]
+"logillm" = "logillm"
 
 [tool.ruff.lint]
 select = [
