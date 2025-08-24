@@ -4,7 +4,7 @@ LogiLLM provides first-class persistence for optimized modules, allowing you to 
 
 ## 🎯 Why Persistence Matters
 
-**The Problem:** Traditional prompt engineering requires manual tuning every time. Even optimization frameworks like DSPy require re-optimization on every restart - wasting time, API calls, and money.
+**The Problem:** Traditional prompt engineering requires manual tuning every time. While optimization frameworks like DSPy do support saving/loading, LogiLLM provides a more streamlined, production-ready persistence experience.
 
 **LogiLLM's Solution:** Train once, save forever. Optimized modules preserve their complete state including prompts, examples, hyperparameters, and provider configurations.
 

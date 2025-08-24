@@ -5,6 +5,7 @@ Example: Debugging prompts in LogiLLM
 This example shows how to view the actual prompts being sent to the LLM,
 which is essential for debugging and understanding how LogiLLM works.
 """
+
 import asyncio
 
 from logillm.core.predict import Predict
@@ -38,7 +39,7 @@ async def main():
 
         # Show the actual prompt
         print("\nActual prompt sent to LLM:")
-        for i, msg in enumerate(result.prompt['messages'], 1):
+        for i, msg in enumerate(result.prompt["messages"], 1):
             print(f"\nMessage {i}:")
             print(f"  Role: {msg.get('role')}")
             print(f"  Content: {msg.get('content')[:200]}...")  # First 200 chars
@@ -82,7 +83,9 @@ async def main():
 
     # Add some demonstrations
     qa.add_demo({"inputs": {"question": "What is 2+2?"}, "outputs": {"answer": "4"}})
-    qa.add_demo({"inputs": {"question": "What is the capital of France?"}, "outputs": {"answer": "Paris"}})
+    qa.add_demo(
+        {"inputs": {"question": "What is the capital of France?"}, "outputs": {"answer": "Paris"}}
+    )
 
     result = await qa(question="What is the capital of Spain?")
     print(f"Answer: {result.answer}")
@@ -92,7 +95,7 @@ async def main():
         print(f"  Number of demos included: {result.prompt['demos_count']}")
 
         # The prompt will now include the demonstrations
-        content = result.prompt['messages'][0]['content']
+        content = result.prompt["messages"][0]["content"]
         if "2+2" in content and "Paris" in content:
             print("  ✓ Demonstrations are included in the prompt")
 

@@ -79,7 +79,7 @@ pip install logillm[anthropic]  # Only if using Claude
 
 DSPy requires 15+ packages just to start. LogiLLM's core needs nothing.
 
-### 3. Built-in Module Persistence (DSPy Has No Equivalent)
+### 3. Improved Module Persistence
 ```python
 # Optimize once, save forever
 optimizer = HybridOptimizer(metric=accuracy_metric)
@@ -93,7 +93,7 @@ classifier = Predict.load("models/classifier.json")
 result = await classifier(input="test")  # Uses optimized state
 ```
 
-**DSPy Problem:** Every restart requires re-optimization - wasted time, money, and API calls.  
+**Production Challenge:** While DSPy does support saving/loading, LogiLLM provides more streamlined persistence.
 **LogiLLM Solution:** Complete state preservation with version compatibility and instant loading.
 
 ### 4. Production-Ready from Day One
@@ -235,7 +235,7 @@ optimized = await optimizer.optimize(
 ### If you're using DSPy:
 - **Keep the programming paradigm** you love
 - **Get 20-40% better performance** with hybrid optimization
-- **Save optimized modules** with built-in persistence (DSPy has no equivalent) 
+- **Save optimized modules** with improved persistence and better production ergonomics 
 - **Reduce dependencies** from 15+ to 0
 - **Improve debuggability** with clean architecture
 - **Scale better** with native async support

@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.9"
 
 [[package]]
@@ -462,14 +462,6 @@ all = [
 anthropic = [
     { name = "anthropic" },
 ]
-dev = [
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "pytest-timeout" },
-    { name = "ruff" },
-]
 google = [
     { name = "google-genai" },
 ]
@@ -492,15 +484,9 @@ requires-dist = [
     { name = "anthropic", marker = "extra == 'anthropic'", specifier = ">=0.39.0" },
     { name = "google-genai", marker = "extra == 'google'", specifier = ">=0.3.0" },
     { name = "logillm", extras = ["openai", "anthropic", "google"], marker = "extra == 'all'" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0" },
     { name = "openai", marker = "extra == 'openai'", specifier = ">=1.100.2" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.21" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0" },
-    { name = "pytest-timeout", marker = "extra == 'dev'", specifier = ">=2.2.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1" },
 ]
-provides-extras = ["openai", "anthropic", "google", "all", "dev"]
+provides-extras = ["openai", "anthropic", "google", "all"]
 
 [package.metadata.requires-dev]
 dev = [

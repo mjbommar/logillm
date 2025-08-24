@@ -110,7 +110,7 @@ result = await production_model(input="test")  # Uses optimized state
 - Optimization can take **minutes to hours** with large datasets
 - Re-optimization costs **hundreds of API calls**
 - Saved modules load in **milliseconds**
-- **DSPy has no equivalent** - they re-optimize every time!
+- **LogiLLM's persistence is more production-ready** - simple API and better ergonomics!
 
 👉 **See [Persistence Guide](../core-concepts/persistence.md)** for complete save/load patterns.
 

@@ -1,453 +1,167 @@
 # LogiLLM
 
-**Program language models, don't prompt them.**
+**Program language models with structured inputs and outputs, built for production.**
 
-## Why LogiLLM Exists
-
-I created LogiLLM after evaluating DSPy for production use. While DSPy pioneered this approach to
-*programming* (not prompting) language models, I encountered several challenges that made it difficult to deploy
-reliably:
-
-- **Heavy dependency footprint** - DSPy requires 15+ packages including LiteLLM, Optuna, numpy, and others, creating
-  risk of version conflicts, increased security footprint, and large deployment sizes
-- **No hyperparameter optimization** - DSPy can only optimize prompts, missing the critical ability to tune temperature,
-  top_p, and other parameters that dramatically impact performance
-- **Metaclass magic** - The complex metaclass architecture made debugging production issues extremely difficult
-- **Limited async support** - Modern production systems need native async/await for efficient scaling
-
-LogiLLM was born from a simple question: **What if we could have DSPy's brilliant programming paradigm but engineered
-for production from the ground up?**
-
-## The LogiLLM Philosophy
-
-LogiLLM maintains DSPy's core insight - that we should program LLMs by defining what we want (signatures) and how to get
-it (modules), then let optimization find the best implementation. But we rebuilt everything from scratch with production
-requirements in mind:
-
-1. **Zero dependencies in core** - The entire core framework uses only Python's standard library. LLM providers are
-   optional add-ons.
-
-2. **Hybrid optimization** - A distinguishing feature. We simultaneously optimize both prompts AND hyperparameters, achieving
-   20-40% better performance than prompt-only optimization in early testing.
-
-3. **Clean, explicit architecture** - No metaclass magic. Every initialization is explicit and debuggable. When
-   something goes wrong at 3 AM in production, you can actually fix it from the stack trace.
-
-4. **Modern Python throughout** - Full async/await support, complete type hints, Python 3.13+ features. Built for the
-   Python ecosystem of 2025.
+LogiLLM lets you define what you want from an LLM using Python signatures, then handles prompt engineering, output parsing, and optimization automatically.
 
 ## Quick Example
 
 ```python
-# Traditional prompt engineering (brittle, hard to maintain)
-prompt = "Please analyze the sentiment of the following text and provide confidence..."
-response = llm.complete(prompt)
-# Now parse the response somehow...
-
-# LogiLLM approach (robust, maintainable)
 from logillm.core.predict import Predict
 from logillm.providers import create_provider, register_provider
 
-# Setup provider (one-time)
-provider = create_provider("openai", model="gpt-4.1")
+# Setup (one time)
+provider = create_provider("openai")
 register_provider(provider, set_default=True)
 
-# Define and use
-analyzer = Predict("text -> sentiment: str, confidence: float")
-result = await analyzer(text="I love this framework!")
+# Define what you want
+analyzer = Predict("text -> sentiment: str")
+
+# Use it
+result = await analyzer(text="I love this new feature!")
 print(result.sentiment)  # "positive"
-print(result.confidence)  # 0.95-0.98 (varies based on text)
-
-# Debug mode: See exactly what prompt was sent to the LLM
-analyzer = Predict("text -> sentiment: str, confidence: float", debug=True)
-result = await analyzer(text="I love this framework!")
-print(result.prompt["messages"])  # See the actual messages sent
-print(result.prompt["adapter"])   # "chat" - format used
-print(result.prompt["model"])     # "gpt-4.1" - model used
 ```
 
-The key insight: you specify WHAT you want, not HOW to ask for it. The framework handles prompt construction, output
-parsing, error recovery, and optimization.
+Instead of crafting prompts and parsing responses, you specify the input/output structure. LogiLLM handles the rest.
 
-## Key Features That Set Us Apart
+## What You Can Build
 
-### 🚀 Hybrid Optimization (DSPy Can't Do This)
+**📧 Smart Email Processing** - Classify, extract entities, determine urgency  
+**📝 Document Generation** - Create structured reports from data  
+**🤖 Reasoning Agents** - Multi-step analysis with external tool integration  
+**🎮 Interactive Systems** - Games, chatbots, personalized experiences  
+**💾 Persistent AI** - Systems that remember and learn from interactions
 
-```python
-from logillm.core.predict import Predict
-from logillm.core.optimizers import AccuracyMetric
-from logillm.optimizers import HybridOptimizer
-from logillm.providers import create_provider, register_provider
+## Key Features
 
-# ⚠️ IMPORTANT: You MUST set up a provider first!
-# Without a provider, you'll get: "No provider available for hyperparameter optimization"
-provider = create_provider("openai", model="gpt-4.1")  # or use MockProvider for testing
-register_provider(provider, set_default=True)
-
-# Create a classifier to optimize (pass the provider explicitly)
-classifier = Predict("text -> category: str", provider=provider)
-
-# Training data
-data = [
-    {"inputs": {"text": "I love this!"}, "outputs": {"category": "positive"}},
-    {"inputs": {"text": "This is terrible"}, "outputs": {"category": "negative"}},
-    # ... more examples
-]
-
-# LogiLLM can optimize BOTH prompts and hyperparameters
-metric = AccuracyMetric(key="category")
-optimizer = HybridOptimizer(
-    metric=metric, 
-    strategy="alternating",
-    verbose=True  # See step-by-step optimization progress!
-)
-
-# Note: Configuration handling is consistent across LogiLLM
-# Module.config and Provider.config are always dicts, accessed like:
-# module.config["temperature"] = 0.7  # ✅ Correct
-# module.config.temperature = 0.7     # ❌ Will fail!
-
-result = await optimizer.optimize(
-    module=classifier,
-    dataset=data,
-    param_space={
-        "temperature": (0.0, 1.5),  # Find optimal temperature
-        "top_p": (0.7, 1.0)  # Find optimal top_p
-    }
-)
-
-# With verbose=True, you'll see real-time progress:
-# [   0.0s] Step   0/6 | Starting alternating optimization...
-# [   0.1s] Step   0/6 | Baseline score: 0.3320
-# [   0.2s] Step   1/6 | Iteration 1: Optimizing hyperparameters...
-# [   2.1s] Step   1/10 | Testing params: temperature=0.723, top_p=0.850
-# [   2.8s] Step   1/10 | 🎯 NEW BEST! Score: 0.7800
-# [   3.5s] Step   2/10 | Testing params: temperature=0.451, top_p=0.920
-# [   4.2s] Step   2/10 | Score: 0.7650
-# ... and so on
-
-# See what was optimized
-print(f"Best score: {result.best_score:.2%}")
-print(f"Best parameters: {result.metadata.get('best_config', {})}")
-print(f"Demos added: {len(result.optimized_module.demo_manager.demos)}")
-
-# Use the optimized module
-optimized_classifier = result.optimized_module
-response = await optimized_classifier(text="This product is amazing!")
-print(f"Result: {response.outputs.get('category')}")  # Will use optimized prompts & parameters
-```
-
-DSPy architecturally cannot optimize hyperparameters - it's limited to prompt optimization only. This single limitation
-often leaves 20-40% performance on the table.
-
-### 💾 First-Class Module Persistence (DSPy Has No Equivalent)
-
-```python
-from logillm.core.predict import Predict
-from logillm.core.optimizers import AccuracyMetric
-from logillm.optimizers import BootstrapFewShot
-from logillm.providers import create_provider, register_provider
-
-# ⚠️ IMPORTANT: Set up provider first
-provider = create_provider("openai", model="gpt-4.1")
-register_provider(provider, set_default=True)
-
-# Train once, save forever
-classifier = Predict("email: str -> intent: str")
-
-# Optimize with real training data (this takes time and API calls)
-optimizer = BootstrapFewShot(metric=AccuracyMetric(key="intent"))
-result = await optimizer.optimize(
-    module=classifier,
-    dataset=training_data  # Your labeled examples
-)
-
-# Save the optimized module (preserves everything!)
-optimized_classifier = result.optimized_module
-optimized_classifier.save("models/email_classifier.json")
-
-# What gets saved:
-# ✅ Optimized prompts and few-shot examples  
-# ✅ Configuration (temperature, top_p, etc.)
-# ✅ Provider info (model, settings)
-# ✅ Version compatibility tracking
-# ✅ Metadata and optimization history
-
-# 🚀 In production: Load instantly, no re-optimization
-classifier = Predict.load("models/email_classifier.json")
-result = await classifier(email="Please cancel my account")
-print(result.intent)  # "cancellation" - using optimized prompts!
-
-# Production workflow:
-# 1. Development: Optimize once, save with .save()
-# 2. Deployment: Load instantly with .load() 
-# 3. Scaling: No API calls needed for model loading
-```
-
-**The Problem This Solves:** DSPy has no built-in persistence. Every restart means re-optimization - wasted time, 
-money, and API calls. LogiLLM modules save/load their complete optimized state, including prompts, examples, 
-and hyperparameters.
-
-**What Makes This Special:**
-- **Complete state preservation** - prompts, examples, config, provider info
-- **Version compatibility** - warns about version mismatches, handles migration
-- **Production-ready** - load optimized modules instantly without re-training
-- **Zero vendor lock-in** - plain JSON files you can inspect and version control
-
-### 📦 True Zero Dependencies
-
-```bash
-# Core LogiLLM has ZERO dependencies
-pip install logillm  # Just Python standard library
-
-# Providers are optional
-pip install logillm[openai]     # Only if using OpenAI
-pip install logillm[anthropic]  # Only if using Claude
-```
-
-DSPy requires 15+ packages just to start. LogiLLM's core needs nothing.
-
-### ⚡ Production-Ready from Day One
-
-- **Native async/await** throughout for efficient scaling
-- **Complete type hints** for IDE support and type checking
-- **Comprehensive error handling** with automatic retries
-- **Usage tracking** for token consumption and costs
-- **Clean stack traces** you can actually debug
-
-### 🏗️ Modern, Clean Architecture
-
-```python
-# LogiLLM: Explicit, debuggable
-predictor = Predict(signature="question -> answer")
-result = await predictor(question="What is 2+2?")
-
-
-# DSPy: Metaclass magic, hard to debug
-class MyModule(dspy.Module):
-    def __init__(self):
-        super().__init__()
-        self.predictor = dspy.Predict("question -> answer")
-```
+- **🎯 Structured I/O** - Type-safe inputs and outputs with automatic validation
+- **⚡ Zero Dependencies** - Core library uses only Python standard library  
+- **🚀 Production Ready** - Full async support, comprehensive error handling, observability
+- **🔧 Auto-Optimization** - Improve performance by optimizing prompts AND hyperparameters
+- **💾 Built-in Persistence** - Save and load optimized models instantly
 
 ## Installation
 
 ```bash
-# Core library (no dependencies!)
+# Core library 
 pip install logillm
 
-# With specific providers
+# With LLM providers
 pip install logillm[openai]     # For GPT models
-pip install logillm[anthropic]  # For Claude
-pip install logillm[all]        # All providers
+pip install logillm[anthropic]  # For Claude models
 ```
 
-## Getting Started
+## Learning Path
 
-### Step 1: Basic Prediction
+### 🚀 New to LogiLLM?
+Start with our interactive tutorials (15 minutes each):
 
+1. **[LLM Text Generation](docs/tutorials/llms-txt-generation.md)** - Generate repository documentation
+2. **[Email Extraction](docs/tutorials/email-extraction.md)** - Structured data from messy emails  
+3. **[Yahoo Finance ReAct](docs/tutorials/yahoo-finance-react.md)** - Build a financial analysis agent
+
+**→ [Full Tutorial Index](docs/tutorials/README.md)** - 6 complete tutorials from beginner to advanced
+
+### 📚 Complete Documentation
+- **[Getting Started Guide](docs/tutorials/getting-started.md)** - Personalized tutorial recommendations
+- **[Tutorial Matrix](docs/tutorials/tutorial-matrix.md)** - Difficulty levels and time estimates  
+- **[Tutorial Examples](examples/tutorials/)** - Complete working code for all tutorials
+
+## Working Examples
+
+### Basic Classification
 ```python
-from logillm.core.predict import Predict
-from logillm.providers import create_provider, register_provider
-
-# Setup provider (one-time)
-provider = create_provider("openai", model="gpt-4.1")
-register_provider(provider, set_default=True)
-
-# Define what you want
-qa = Predict("question -> answer")
-
-# Use it
-result = await qa(question="What is the capital of France?")
-print(result.answer)  # "Paris"
+# Classify text into categories
+classifier = Predict("text -> category: str")
+result = await classifier(text="I need help with my billing account")
+print(result.category)  # "Billing"
 ```
 
-### Step 2: Structured Outputs
+### Multi-Output Prediction
+```python
+# Get multiple outputs in one call
+analyzer = Predict("text -> sentiment: str, confidence: float")
+result = await analyzer(text="This product is amazing!")
+print(result.sentiment)   # "positive"  
+print(result.confidence)  # 0.97
+```
 
+### Structured Signatures
 ```python
 from logillm.core.signatures import Signature, InputField, OutputField
 
+class TextAnalysis(Signature):
+    text: str = InputField(description="Text to analyze")
+    category: str = OutputField(description="Category like support, sales, billing")
+    priority: int = OutputField(description="Priority 1-5 where 5 is most urgent")
 
-class CustomerAnalysis(Signature):
-    """Analyze customer feedback."""
-
-    feedback: str = InputField(desc="Customer feedback text")
-
-    sentiment: str = OutputField(desc="positive, negative, or neutral")
-    issues: list[str] = OutputField(desc="List of issues mentioned")
-    priority: int = OutputField(desc="Priority level 1-5")
-
-
-analyzer = Predict(signature=CustomerAnalysis)
-result = await analyzer(feedback="Your product crashed and I lost all my work!")
-# result.sentiment = "negative"
-# result.issues = ["product crash", "data loss"]
-# result.priority = 5
+analyzer = Predict(signature=TextAnalysis)
+result = await analyzer(text="My account is locked and I cannot access my files")
+print(result.category)  # "Account Access"
+print(result.priority)  # 1
 ```
 
-### Step 3: Optimization for Production
+## Production Features
 
+### Multiple Providers
 ```python
-from logillm.core.predict import Predict
-from logillm.core.optimizers import AccuracyMetric
+# Set up multiple LLM providers  
+openai_provider = create_provider("openai", model="gpt-4.1")
+register_provider(openai_provider, "fast")
+
+# Use the registered provider (becomes default)
+result = await Predict("text -> summary: str")(text="Long document to summarize...")
+print(result.summary)  # "This document discusses..."
+```
+
+### Optimization (requires training data)
+```python
+# Optimize performance on your data
 from logillm.optimizers import HybridOptimizer
-from logillm.providers import create_provider, register_provider
+from logillm.core.optimizers import AccuracyMetric
 
-# ⚠️ REQUIRED: Set up provider first (optimization needs it!)
-# Without this, you'll get: "No provider available for hyperparameter optimization"
-provider = create_provider("openai", model="gpt-4.1")
-register_provider(provider, set_default=True)
-
-# Start with any module (MUST pass provider explicitly for optimization)
-classifier = Predict("text -> category: str, confidence: float", provider=provider)
-
-# Prepare your training data
+# Your labeled training examples
 training_data = [
-    {"inputs": {"text": "Great product!"}, "outputs": {"category": "positive", "confidence": 0.95}},
-    {"inputs": {"text": "Terrible service"}, "outputs": {"category": "negative", "confidence": 0.88}},
+    {"inputs": {"text": "Great service!"}, "outputs": {"sentiment": "positive"}},
+    {"inputs": {"text": "Poor quality"}, "outputs": {"sentiment": "negative"}},
     # ... more examples
 ]
 
-# Define how to measure success
-accuracy_metric = AccuracyMetric(key="category")
+# Optimize both prompts and hyperparameters  
+classifier = Predict("text -> sentiment: str")
+optimizer = HybridOptimizer(metric=AccuracyMetric(key="sentiment"))
+result = await optimizer.optimize(module=classifier, dataset=training_data)
 
-# Optimize BOTH prompts and hyperparameters
-optimizer = HybridOptimizer(
-    metric=accuracy_metric,
-    strategy="alternating",  # Alternate between prompt and param optimization
-    optimize_format=True,  # Also discover best output format
-    verbose=True  # Show optimization progress in real-time
-)
+# Save optimized model
+result.optimized_module.save("sentiment_model.json")
 
-# Train on your data
-result = await optimizer.optimize(
-    module=classifier,
-    dataset=training_data,
-    param_space={
-        "temperature": (0.0, 1.5),
-        "top_p": (0.7, 1.0)
-    }
-)
-
-# See what was optimized
-print(f"Best score achieved: {result.best_score:.2%}")
-print(f"Improvement: {result.improvement:.2%}")
-print(f"Best hyperparameters: {result.metadata.get('best_config', {})}")
-
-# Use the optimized module in production
-optimized_classifier = result.optimized_module
-response = await optimized_classifier(text="Need help with billing")
-print(f"Category: {response.outputs.get('category')}")
-print(f"Confidence: {response.outputs.get('confidence')}")
-
-# Enable debug to see the optimized prompt
-optimized_classifier.enable_debug_mode()
-response = await optimized_classifier(text="Another test")
-print(f"Optimized prompt uses {len(response.prompt['messages'])} messages")
+# Load in production
+classifier = Predict.load("sentiment_model.json")
 ```
 
-## Architecture Overview
+## Why LogiLLM?
 
-LogiLLM uses a clean, modular architecture where each component has a single responsibility:
+**Coming from prompt engineering?** Stop writing brittle string templates. Define structured inputs/outputs and let LogiLLM handle prompt construction.
 
-```mermaid
-graph TB
-    User[Your Code] --> Module[Module Layer]
-    Module --> Signature[Signature Layer]
-    Module --> Provider[Provider Layer]
-    Module --> Adapter[Adapter Layer]
-    Module --> Optimizer[Optimizer Layer]
-    
-    Signature --> |Defines| IO[Input/Output Specs]
-    Provider --> |Connects to| LLM[LLM APIs]
-    Adapter --> |Formats| Prompts[Prompts & Parsing]
-    Optimizer --> |Improves| Performance[Performance]
-    
-    style Module fill:#e1f5fe
-    style Optimizer fill:#fff3e0
-    style Provider fill:#f3e5f5
-    style Adapter fill:#e8f5e9
-```
+**Coming from dspy?** Get better performance through hybrid optimization (prompts + hyperparameters), zero-dependency deployment, and more modern Python standards.
 
-**Text representation of architecture:**
+**Building production systems?** Native async support, comprehensive error handling, automatic retries, and observability built-in.
 
-```
-Your Application
-    ↓
-Module Layer (Predict, ChainOfThought, ReAct)
-    ↓
-Signature Layer (Input/Output Specifications)
-    ↓
-Adapter Layer (JSON, XML, Chat, Markdown)
-    ↓
-Provider Layer (OpenAI, Anthropic, Google)
-    ↑
-Optimizer Layer (Hybrid, SIMBA, COPRO)
-```
+## What's Different from DSPy?
 
-## Real-World Performance
+- **Hybrid Optimization** - Optimize both prompts AND hyperparameters simultaneously  
+- **Zero Dependencies** - Core framework uses only Python standard library
+- **Production First** - Built for scaling, monitoring, and maintenance from day one
+- **Type Safety** - Full Pydantic integration with IDE support
+- **Modern Python** - Async/await throughout, Python 3.9+ features
 
-In production deployments, LogiLLM has demonstrated:
+## Getting Help
 
-- **87.5% test coverage** with all major features working
-- **2x faster optimization** than DSPy+Optuna due to zero overhead
-- **50% less code complexity** making maintenance easier
-- **Native support** for GPT-4, Claude, Gemini without adapter layers
-
-## Why Choose LogiLLM?
-
-### If you're using DSPy:
-
-- **Keep the programming paradigm** you love
-- **Get 20-40% better performance** with hybrid optimization
-- **Save optimized modules** with built-in persistence (DSPy has no equivalent)
-- **Reduce dependencies** from 15+ to 0
-- **Improve debuggability** with clean architecture
-- **Scale better** with native async support
-
-### If you're doing prompt engineering:
-
-- **Stop writing brittle prompt strings** that break with small changes
-- **Get structured outputs** with automatic parsing and validation
-- **Optimize automatically** instead of manual trial-and-error
-- **Build maintainable systems** with modular, composable components
-
-### If you're building production LLM apps:
-
-- **Zero-dependency core** passes security audits
-- **Instant model loading** with persistence - no re-optimization needed
-- **Complete observability** with callbacks and usage tracking
-- **Automatic error recovery** with retry and refinement
-- **Type-safe throughout** with full IDE support
-- **Production-tested** with comprehensive test coverage
-
-## Documentation
-
-Full documentation is available at [docs/README.md](docs/README.md).
-
-Key sections:
-
-- [Quickstart Tutorial](docs/getting-started/quickstart.md) - Build your first app in 5 minutes
-- [Core Concepts](docs/core-concepts/README.md) - Understand the programming paradigm
-- [Optimization Guide](docs/optimization/overview.md) - Learn about hybrid optimization
-- [API Reference](docs/api-reference/modules.md) - Complete API documentation
-- [DSPy Migration](docs/getting-started/dspy-migration.md) - For DSPy users
-
-## Contributing
-
-LogiLLM welcomes contributions! The codebase follows modern Python standards with comprehensive testing and type
-checking. See [CLAUDE.md](CLAUDE.md) for development guidelines.
-
-## The Bottom Line
-
-LogiLLM is what happens when you love DSPy's ideas but need them to work reliably in production. We kept the brilliant
-programming paradigm, threw out the complexity, added the missing features (hello, hyperparameter optimization!), and
-built everything on a foundation of zero dependencies and clean code.
-
-If you're tired of prompt engineering, frustrated with DSPy's limitations, or just want a better way to build LLM
-applications, LogiLLM is for you.
+- **📚 [Start with Tutorials](docs/tutorials/README.md)** - 6 hands-on tutorials, 15-40 minutes each
+- **🤔 [Getting Started Guide](docs/tutorials/getting-started.md)** - Personalized recommendations  
+- **⚡ [Quick Examples](examples/tutorials/)** - Working code for common patterns
+- **🐛 Issues** - Report bugs or request features on GitHub
 
 ---
 
-**Ready to start?** Jump into the [Quickstart Tutorial](docs/getting-started/quickstart.md) and build your first LogiLLM
-app in 5 minutes.
+**Ready to build?** Start with the **[LLM Text Generation tutorial](docs/tutorials/llms-txt-generation.md)** (15 minutes) or browse **[all tutorials](docs/tutorials/README.md)** to find your perfect starting point.
