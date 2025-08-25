@@ -428,7 +428,7 @@ export ANTHROPIC_API_KEY="your-key-here"
 uv run --with logillm --with anthropic python -m examples.tutorials.ai_text_game.demo
 
 # Run tests to verify your setup
-uv run --with logillm --with openai python examples/tutorials/ai_text_game/test_demo.py
+uv run --with logillm --with openai python examples/tutorials/ai_text_game/test_tutorial.py
 ```
 
 ---

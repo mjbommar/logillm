@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
-"""Few-Shot Learning with LogiLLM.
+"""Few-Shot Learning with LogiLLM - Detailed Tutorial.
 
-This example demonstrates LogiLLM's bootstrap few-shot capabilities:
+Quick alternatives:
+- examples/quickstart.py - 30-second intro (25 lines)
+- examples/quick_start.py - Minimal few-shot demo (45 lines)  
+- examples/signatures_demo.py - Signature features (70 lines)
+- examples/minimal_math.py - Math solving example (55 lines)
+
+This detailed tutorial demonstrates LogiLLM's bootstrap few-shot capabilities:
 1. Starting with a basic module with no examples
 2. Using bootstrap learning to automatically generate helpful examples
 3. Comparing performance before and after adding examples
@@ -19,10 +25,44 @@ Prerequisites:
 import asyncio
 import os
 
-from logillm.core.optimizers import AccuracyMetric
+from logillm.core.optimizers import AccuracyMetric, Metric
 from logillm.core.predict import Predict
 from logillm.optimizers import BootstrapFewShot
 from logillm.providers import create_provider, register_provider
+
+
+class NormalizedIntentMetric(Metric):
+    """Metric that normalizes intent names before comparison."""
+
+    def __init__(self, key: str = "intent"):
+        self.key = key
+
+    def normalize_intent(self, intent: str) -> str:
+        """Normalize intent to standard form."""
+        intent = intent.lower().strip()
+        # Map variations to standard intents
+        if any(word in intent for word in ["cancel", "close", "terminate"]):
+            return "cancel"
+        elif any(word in intent for word in ["billing", "invoice", "receipt", "payment"]):
+            return "billing"
+        elif any(word in intent for word in ["support", "help", "login", "problem", "issue"]):
+            return "support"
+        elif any(word in intent for word in ["thank", "gratitude", "appreciate"]):
+            return "thanks"
+        elif any(word in intent for word in ["ship", "order", "delivery", "package", "tracking"]):
+            return "shipping"
+        elif any(word in intent for word in ["upgrade", "premium", "plan"]):
+            return "upgrade"
+        return intent
+
+    def __call__(self, prediction: dict, reference: dict, **kwargs) -> float:
+        """Check if intents match after normalization."""
+        pred_intent = self.normalize_intent(prediction.get(self.key, ""))
+        ref_intent = self.normalize_intent(reference.get(self.key, ""))
+        return 1.0 if pred_intent == ref_intent else 0.0
+
+    def name(self) -> str:
+        return f"normalized_{self.key}"
 
 
 async def main():
@@ -41,9 +81,9 @@ async def main():
         provider = create_provider("openai", model="gpt-4.1")
         register_provider(provider, set_default=True)
 
-        # Step 2: Create a module without any examples
-        # We'll teach it to classify email intent
-        email_classifier = Predict("email -> intent: str", provider=provider)
+        # Step 2: Create a basic module without detailed instructions
+        # This will struggle without examples
+        email_classifier = Predict("email -> intent", provider=provider)
 
         print("📧 Email Intent Classification")
         print("=" * 35)
@@ -66,20 +106,20 @@ async def main():
 
         baseline_correct = 0
         baseline_predictions = []
+        normalizer = NormalizedIntentMetric()
 
         for email, expected in zip(test_emails, expected_intents):
             result = await email_classifier(email=email)
-            predicted = result.outputs.get("intent", "").lower()
+            predicted_raw = result.outputs.get("intent", "")
+            predicted = normalizer.normalize_intent(predicted_raw)
             baseline_predictions.append(predicted)
-
-            is_correct = (
-                expected.lower() in predicted.lower() or predicted.lower() in expected.lower()
-            )
+                
+            is_correct = predicted == expected
             if is_correct:
                 baseline_correct += 1
 
             status = "✓" if is_correct else "✗"
-            print(f"  {status} '{email[:50]}...' → {predicted} (expected: {expected})")
+            print(f"  {status} '{email[:50]}...' → {predicted_raw} (expected: {expected})")
 
         baseline_accuracy = baseline_correct / len(test_emails)
         print(f"\n📊 Baseline Accuracy: {baseline_accuracy:.1%}")
@@ -107,12 +147,12 @@ async def main():
         ]
 
         # Step 5: Use bootstrap few-shot to improve the module
-        metric = AccuracyMetric(key="intent")
+        # Use normalized matching since model outputs vary
+        metric = NormalizedIntentMetric(key="intent")
 
         bootstrap = BootstrapFewShot(
             metric=metric,
-            max_examples=4,  # Add up to 4 helpful examples
-            teacher_module=None,  # Will create a teacher automatically
+            max_bootstrapped_demos=4,  # Add up to 4 helpful examples
         )
 
         print("• Analyzing training data...")
@@ -132,17 +172,16 @@ async def main():
 
         for email, expected in zip(test_emails, expected_intents):
             result = await improved_classifier(email=email)
-            predicted = result.outputs.get("intent", "").lower()
+            predicted_raw = result.outputs.get("intent", "")
+            predicted = normalizer.normalize_intent(predicted_raw)
             improved_predictions.append(predicted)
 
-            is_correct = (
-                expected.lower() in predicted.lower() or predicted.lower() in expected.lower()
-            )
+            is_correct = predicted == expected
             if is_correct:
                 improved_correct += 1
 
             status = "✓" if is_correct else "✗"
-            print(f"  {status} '{email[:50]}...' → {predicted} (expected: {expected})")
+            print(f"  {status} '{email[:50]}...' → {predicted_raw} (expected: {expected})")
 
         improved_accuracy = improved_correct / len(test_emails)
         improvement = improved_accuracy - baseline_accuracy

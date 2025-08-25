@@ -541,7 +541,7 @@ export ANTHROPIC_API_KEY="your-key-here"
 uv run --with logillm --with anthropic --with requests python examples/tutorials/llms_txt_generation/llms_txt_generator.py
 
 # Run tests to verify your setup
-uv run --with logillm --with openai --with requests python examples/tutorials/llms_txt_generation/test_demo.py
+uv run --with logillm --with openai --with requests python examples/tutorials/llms_txt_generation/test_tutorial.py
 ```
 
 ---

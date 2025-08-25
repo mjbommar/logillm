@@ -578,7 +578,7 @@ export ANTHROPIC_API_KEY="your-key-here"
 uv run --with logillm --with anthropic --with yfinance python -m examples.tutorials.yahoo_finance_react.demo
 
 # Run tests to verify your setup
-uv run --with logillm --with openai --with yfinance python examples/tutorials/yahoo_finance_react/test_demo.py
+uv run --with logillm --with openai --with yfinance python examples/tutorials/yahoo_finance_react/test_tutorial.py
 ```
 
 ---

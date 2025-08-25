@@ -167,7 +167,7 @@ print('✅ LogiLLM setup successful!')
 - **Time expectations**: Each tutorial includes realistic time estimates
 
 ### As You Learn  
-- **Run the tests**: Every tutorial has a `test_demo.py` - use it to verify your setup
+- **Run the tests**: Every tutorial has a test script (`test_tutorial.py` or `test_demo.py`) - use it to verify your setup
 - **Experiment**: Try modifying examples with your own data/use cases
 - **Read the signatures**: Understanding input/output definitions is key to LogiLLM
 
@@ -207,7 +207,7 @@ print('✅ LogiLLM setup successful!')
 
 ## 🤝 Getting Help
 
-- **Stuck on setup?** Check the `test_demo.py` file in each tutorial
+- **Stuck on setup?** Check the test file (`test_tutorial.py` or `test_demo.py`) in each tutorial
 - **API errors?** Verify your API keys and try the simpler tutorials first  
 - **Want to contribute?** All tutorials are in `/examples/tutorials/` - improvements welcome!
 - **Found a bug?** Each tutorial is fully tested - let us know if something breaks

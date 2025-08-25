@@ -692,7 +692,7 @@ export ANTHROPIC_API_KEY="your-key-here"
 uv run --with logillm --with anthropic --with pydantic python -m examples.tutorials.email_extraction.demo
 
 # Run tests to verify your setup
-uv run --with logillm --with openai --with pydantic python examples/tutorials/email_extraction/test_demo.py
+uv run --with logillm --with openai --with pydantic python examples/tutorials/email_extraction/test_tutorial.py
 ```
 
 ---

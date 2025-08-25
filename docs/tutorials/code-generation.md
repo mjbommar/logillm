@@ -804,7 +804,7 @@ export ANTHROPIC_API_KEY="your-key-here"
 uv run --with logillm --with anthropic --with requests --with beautifulsoup4 --with lxml python -m examples.tutorials.code_generation.demo
 
 # Run tests to verify your setup
-uv run --with logillm --with openai --with requests --with beautifulsoup4 python examples/tutorials/code_generation/test_demo.py
+uv run --with logillm --with openai --with requests --with beautifulsoup4 python examples/tutorials/code_generation/test_tutorial.py
 ```
 
 ---

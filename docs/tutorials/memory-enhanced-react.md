@@ -49,7 +49,7 @@ examples/tutorials/memory_enhanced_react/
 ├── memory_manager.py  # Memory storage and retrieval
 ├── agent.py          # Main ReAct agent
 ├── demo.py           # Interactive demonstration
-└── test_demo.py      # Testing script
+└── test_tutorial.py  # Testing script
 ```
 
 ## Step 1: Define Memory Models
@@ -710,7 +710,7 @@ if __name__ == "__main__":
 ## Step 6: Testing Script
 
 ```python
-# test_demo.py
+# test_tutorial.py
 """Test script for memory-enhanced ReAct agent tutorial."""
 
 import asyncio
@@ -833,10 +833,10 @@ uv run --with logillm --with pydantic --with anthropic python -m examples.tutori
 ### Run Tests
 ```bash
 # With OpenAI
-uv run --with logillm --with pydantic --with openai python examples/tutorials/memory_enhanced_react/test_demo.py
+uv run --with logillm --with pydantic --with openai python examples/tutorials/memory_enhanced_react/test_tutorial.py
 
 # Or with Anthropic
-uv run --with logillm --with pydantic --with anthropic python examples/tutorials/memory_enhanced_react/test_demo.py
+uv run --with logillm --with pydantic --with anthropic python examples/tutorials/memory_enhanced_react/test_tutorial.py
 ```
 
 ## Key Advantages Over DSPy
