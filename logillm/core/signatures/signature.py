@@ -35,27 +35,138 @@ class Signature(SignatureBase, metaclass=SignatureMeta):  # type: ignore[misc]
     @classmethod
     def validate_inputs(cls, **inputs: Any) -> dict[str, Any]:
         """Validate input values against the signature class fields."""
+        from ..types import FieldType
+        from .spec import FieldSpec
+        from .utils import coerce_value_to_spec
+
         validated = {}
         for name, field in cls.input_fields.items():
             if name in inputs:
-                # For now, just pass through - could add type checking later
-                validated[name] = inputs[name]
-            elif hasattr(field, "default") and field.default is not None:
+                value = inputs[name]
+                # Perform type checking and constraint validation
+                try:
+                    # Special validation for multimodal types
+                    from ..signatures.types import Audio, Image
+
+                    # Get the expected type for the field
+                    expected_type = (
+                        getattr(field, "annotation", str)
+                        if hasattr(field, "annotation")
+                        else str
+                    )
+
+                    # Validate Image fields
+                    if expected_type is Image or str(expected_type).endswith("Image"):
+                        if not isinstance(value, Image):
+                            raise TypeError(f"Field '{name}' expects Image type, got {type(value).__name__}")
+                        if not value.data:
+                            raise ValueError(f"Image field '{name}' has no data")
+                        if not value.format:
+                            raise ValueError(f"Image field '{name}' has no format specified")
+
+                    # Validate Audio fields
+                    elif expected_type is Audio or str(expected_type).endswith("Audio"):
+                        if not isinstance(value, Audio):
+                            raise TypeError(f"Field '{name}' expects Audio type, got {type(value).__name__}")
+                        if not value.data:
+                            raise ValueError(f"Audio field '{name}' has no data")
+                        if not value.format:
+                            raise ValueError(f"Audio field '{name}' has no format specified")
+                        # Validate audio format
+                        valid_formats = ["mp3", "wav", "flac", "ogg", "m4a", "webm"]
+                        if value.format not in valid_formats:
+                            raise ValueError(f"Audio field '{name}' has invalid format '{value.format}'. Valid formats: {valid_formats}")
+
+                    # Regular validation for other types
+                    elif isinstance(field, FieldSpec):
+                        value = coerce_value_to_spec(value, field)
+                    else:
+                        # For FieldDescriptor or FieldInfo, create a temp FieldSpec
+                        temp_spec = FieldSpec(
+                            name=name,
+                            field_type=FieldType.INPUT,
+                            python_type=expected_type,
+                            constraints=getattr(field, "constraints", {})
+                            if hasattr(field, "constraints")
+                            else {},
+                        )
+                        value = coerce_value_to_spec(value, temp_spec)
+                    validated[name] = value
+                except Exception as e:
+                    raise ValueError(f"Validation failed for field '{name}': {e}") from e
+            elif hasattr(field, "has_default") and field.has_default():
+                # Use default value if it exists (even if it's None)
                 validated[name] = field.default
-            elif hasattr(field, "is_required") and field.is_required():
-                raise ValueError(f"Required input field '{name}' not provided")
+            elif hasattr(field, "is_required"):
+                # Check if field is required
+                if field.is_required():
+                    # Field is required and no value was provided
+                    raise ValueError(f"Required input field '{name}' not provided")
+                else:
+                    # Field is not required (has a default), add it to validated
+                    if hasattr(field, "default"):
+                        validated[name] = field.default
+            elif not hasattr(field, "is_required"):
+                # For fields without is_required method (e.g. Pydantic FieldInfo)
+                # Check if they have a default value
+                if hasattr(field, "default"):
+                    # Check for Pydantic's PydanticUndefined sentinel
+                    default_val = field.default
+                    if default_val is not None and str(default_val) != "PydanticUndefined":
+                        validated[name] = default_val
+                    elif str(default_val) == "PydanticUndefined":
+                        # No default, field is required
+                        if getattr(field, "required", True):
+                            raise ValueError(f"Required input field '{name}' not provided")
+                    else:
+                        # default is None, which is a valid default
+                        validated[name] = None
+                elif getattr(field, "required", True):
+                    raise ValueError(f"Required input field '{name}' not provided")
         return validated
 
     @classmethod
     def validate_outputs(cls, **outputs: Any) -> dict[str, Any]:
         """Validate output values against the signature class fields."""
+        from ..types import FieldType
+        from .spec import FieldSpec
+        from .utils import coerce_value_to_spec
+
         validated = {}
         for name, field in cls.output_fields.items():
             if name in outputs:
-                # For now, just pass through - could add type checking later
-                validated[name] = outputs[name]
-            elif hasattr(field, "default") and field.default is not None:
+                value = outputs[name]
+                # Perform type checking and constraint validation
+                try:
+                    # Convert field to FieldSpec if needed for validation
+                    if isinstance(field, FieldSpec):
+                        value = coerce_value_to_spec(value, field)
+                    else:
+                        # For FieldDescriptor or FieldInfo, create a temp FieldSpec
+                        expected_type = (
+                            getattr(field, "annotation", str)
+                            if hasattr(field, "annotation")
+                            else str
+                        )
+                        temp_spec = FieldSpec(
+                            name=name,
+                            field_type=FieldType.OUTPUT,
+                            python_type=expected_type,
+                            constraints=getattr(field, "constraints", {})
+                            if hasattr(field, "constraints")
+                            else {},
+                        )
+                        value = coerce_value_to_spec(value, temp_spec)
+                    validated[name] = value
+                except Exception as e:
+                    raise ValueError(f"Validation failed for field '{name}': {e}") from e
+            elif hasattr(field, "has_default") and field.has_default():
+                # Use default value if it exists (even if it's None)
                 validated[name] = field.default
+            elif not hasattr(field, "has_default"):
+                # For fields without has_default method (e.g. Pydantic FieldInfo)
+                if hasattr(field, "default") and field.default is not None:
+                    validated[name] = field.default
         return validated
 
     @classmethod

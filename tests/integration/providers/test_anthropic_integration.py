@@ -34,6 +34,7 @@ class TestAnthropicProvider:
     @pytest.mark.integration
     @pytest.mark.anthropic
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_basic_completion(self, provider):
         """Test basic text completion."""
         messages = [{"role": "user", "content": "Say 'Hello, LogiLLM!' exactly."}]
@@ -50,6 +51,7 @@ class TestAnthropicProvider:
     @pytest.mark.integration
     @pytest.mark.anthropic
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_system_message(self, provider):
         """Test system message handling."""
         messages = [
@@ -66,6 +68,7 @@ class TestAnthropicProvider:
     @pytest.mark.integration
     @pytest.mark.anthropic
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_temperature_control(self, provider):
         """Test temperature parameter."""
         messages = [{"role": "user", "content": "Write exactly: 'test'"}]
@@ -79,6 +82,7 @@ class TestAnthropicProvider:
     @pytest.mark.integration
     @pytest.mark.anthropic
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_max_tokens(self, provider):
         """Test max_tokens parameter."""
         messages = [{"role": "user", "content": "Count from 1 to 100, writing out each number"}]
@@ -95,6 +99,7 @@ class TestAnthropicProvider:
     @pytest.mark.integration
     @pytest.mark.anthropic
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_conversation(self, provider):
         """Test multi-turn conversation."""
         messages = [
@@ -111,6 +116,7 @@ class TestAnthropicProvider:
     @pytest.mark.integration
     @pytest.mark.anthropic
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_streaming(self, provider):
         """Test streaming responses."""
         messages = [{"role": "user", "content": "Count from 1 to 5"}]
@@ -129,6 +135,7 @@ class TestAnthropicProvider:
     @pytest.mark.integration
     @pytest.mark.anthropic
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_with_predict_module(self, provider):
         """Test using provider with Predict module."""
         from logillm.core import register_provider
@@ -148,6 +155,7 @@ class TestAnthropicProvider:
     @pytest.mark.integration
     @pytest.mark.anthropic
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_structured_output_basic(self, provider):
         """Test structured output with Pydantic model."""
 
@@ -177,6 +185,7 @@ class TestAnthropicProvider:
     @pytest.mark.integration
     @pytest.mark.anthropic
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_retry_on_rate_limit(self, provider):
         """Test retry logic (won't actually hit rate limit in normal testing)."""
         messages = [{"role": "user", "content": "Say 'test'"}]
@@ -190,6 +199,7 @@ class TestAnthropicProvider:
     @pytest.mark.integration
     @pytest.mark.anthropic
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_cache_behavior(self, provider):
         """Test caching behavior."""
         from logillm.core.types import CacheLevel
@@ -214,6 +224,7 @@ class TestAnthropicProvider:
     @pytest.mark.integration
     @pytest.mark.anthropic
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_embedding_not_supported(self, provider):
         """Test that embeddings raise NotImplementedError."""
         with pytest.raises(
@@ -224,6 +235,7 @@ class TestAnthropicProvider:
     @pytest.mark.integration
     @pytest.mark.anthropic
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_model_variants(self):
         """Test different Claude model variants."""
         models_to_test = [

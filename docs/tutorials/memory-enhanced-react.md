@@ -54,7 +54,7 @@ examples/tutorials/memory_enhanced_react/
 
 ## Step 1: Define Memory Models
 
-We'll start by creating structured models for our memory system:
+We'll start by creating structured models for our memory system, leveraging LogiLLM's new History type for better conversation management:
 
 ```python
 # models.py
@@ -62,6 +62,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from enum import Enum
 from pydantic import BaseModel, Field
+from logillm.core.signatures.types import History
 
 class MemoryType(str, Enum):
     """Types of memories the agent can store."""
@@ -91,11 +92,12 @@ class UserProfile(BaseModel):
     last_interaction: Optional[datetime] = None
     
 class ConversationContext(BaseModel):
-    """Context for the current conversation."""
+    """Context for the current conversation using LogiLLM's History type."""
     user_profile: UserProfile
     recent_memories: List[Memory] = Field(default_factory=list)
     current_topic: Optional[str] = None
-    conversation_history: List[str] = Field(default_factory=list)
+    # Using LogiLLM's History type for better conversation management
+    conversation_history: History = Field(default_factory=History)
 ```
 
 ## Step 2: Create LogiLLM Signatures
@@ -103,6 +105,7 @@ class ConversationContext(BaseModel):
 ```python
 # signatures.py
 from logillm.core.signatures import InputField, OutputField, Signature
+from logillm.core.signatures.types import History
 from typing import List
 
 class MemoryAnalysis(Signature):
@@ -110,37 +113,38 @@ class MemoryAnalysis(Signature):
     user_input: str = InputField(description="The user's input message")
     user_context: str = InputField(description="Existing context about the user")
     
-    extractable_facts: List[str] = OutputField(description="List of facts worth remembering")
+    extractable_facts: 'list[str]' = OutputField(description="List of facts worth remembering")
     memory_type: str = OutputField(description="Type of memory: preference, fact, reminder, conversation, experience")
     importance_score: int = OutputField(description="Importance score 1-10")
-    suggested_tags: List[str] = OutputField(description="Tags for categorizing this memory")
+    suggested_tags: 'list[str]' = OutputField(description="Tags for categorizing this memory")
 
 class MemoryRetrieval(Signature):
     """Retrieve relevant memories for answering user queries."""
     user_query: str = InputField(description="The user's current query")
     user_id: str = InputField(description="User identifier")
     
-    relevant_memories: List[str] = OutputField(description="List of relevant memories to use in response")
+    relevant_memories: 'list[str]' = OutputField(description="List of relevant memories to use in response")
     search_strategy: str = OutputField(description="How memories were selected")
 
 class PersonalizedResponse(Signature):
-    """Generate personalized responses using memory context."""
+    """Generate personalized responses using memory context with History type."""
     user_input: str = InputField(description="Current user input")
-    relevant_memories: List[str] = InputField(description="Memories relevant to this interaction")
-    conversation_history: List[str] = InputField(description="Recent conversation turns")
+    relevant_memories: 'list[str]' = InputField(description="Memories relevant to this interaction")
+    # Using History type for better conversation tracking
+    conversation_history: History = InputField(description="Structured conversation history")
     
     response: str = OutputField(description="Personalized response incorporating memories")
-    memory_updates: List[str] = OutputField(description="New memories to store from this interaction")
-    action_items: List[str] = OutputField(description="Any actions or reminders to set")
+    memory_updates: 'list[str]' = OutputField(description="New memories to store from this interaction")
+    action_items: 'list[str]' = OutputField(description="Any actions or reminders to set")
 
 class ConversationPlanning(Signature):
     """Plan how to approach a user interaction with memory context."""
     user_input: str = InputField(description="User's message")
     user_profile: str = InputField(description="Summary of what we know about the user")
-    available_tools: List[str] = InputField(description="Available memory and utility tools")
+    available_tools: 'list[str]' = InputField(description="Available memory and utility tools")
     
     reasoning: str = OutputField(description="Step-by-step reasoning about how to respond")
-    tool_calls: List[str] = OutputField(description="Which tools to use and in what order")
+    tool_calls: 'list[str]' = OutputField(description="Which tools to use and in what order")
     response_strategy: str = OutputField(description="Overall strategy for this response")
 ```
 
@@ -457,7 +461,7 @@ class MemoryEnhancedReActAgent(Module):
             response = await self.response_generator(
                 user_input=user_input,
                 relevant_memories=relevant_memories,
-                conversation_history=context.conversation_history[-5:]  # Last 5 turns
+                conversation_history=context.conversation_history  # Pass the History object directly
             )
             
             # Store new memories from this interaction
@@ -471,11 +475,15 @@ class MemoryEnhancedReActAgent(Module):
                     # you'd parse the tool call properly
                     tool_results.append(f"Executed: {tool_call}")
             
-            # Update conversation history
-            context.conversation_history.extend([
-                f"User: {user_input}",
-                f"Agent: {response.response}"
-            ])
+            # Update conversation history using History's add_turn method
+            context.conversation_history.add_turn(
+                role="user",
+                content=user_input
+            )
+            context.conversation_history.add_turn(
+                role="assistant", 
+                content=response.response
+            )
             
             return {
                 'user_input': user_input,
@@ -839,6 +847,80 @@ uv run --with logillm --with pydantic --with openai python examples/tutorials/me
 uv run --with logillm --with pydantic --with anthropic python examples/tutorials/memory_enhanced_react/test_tutorial.py
 ```
 
+## Using LogiLLM's History Type
+
+LogiLLM's History type provides enhanced conversation management compared to simple string lists:
+
+```python
+from logillm.core.signatures.types import History
+
+# Create a History object
+history = History()
+
+# Add conversation turns
+history.add_turn(role="user", content="What's the weather like?")
+history.add_turn(role="assistant", content="I'd be happy to help with weather information.")
+history.add_turn(role="system", content="Weather API access granted")
+
+# Access turns
+latest_turn = history.turns[-1]
+print(f"{latest_turn.role}: {latest_turn.content}")
+
+# Get formatted conversation
+formatted = history.format()  # Returns formatted string for LLM context
+
+# Create from messages
+messages = [
+    {"role": "user", "content": "Hello"},
+    {"role": "assistant", "content": "Hi there!"}
+]
+history = History.from_messages(messages)
+
+# Convert to messages for API calls
+api_messages = history.to_messages()
+
+# Clear history while preserving the object
+history.clear()
+```
+
+### Benefits of Using History Type
+
+1. **Structured Data**: Each turn has role, content, timestamp, and metadata
+2. **Role Management**: Properly tracks user, assistant, system, and function roles
+3. **Formatting**: Built-in formatting for different LLM providers
+4. **Serialization**: Easy to save and restore conversation state
+5. **Token Tracking**: Can track token usage per turn (when integrated with providers)
+6. **Search & Filter**: Find specific turns by role or content
+
+### Integration with Memory System
+
+The History type integrates seamlessly with the memory system:
+
+```python
+# Store important conversation turns as memories
+for turn in context.conversation_history.turns:
+    if turn.metadata.get("important"):
+        memory_manager.store_memory(
+            user_id=user_id,
+            content=f"{turn.role}: {turn.content}",
+            memory_type=MemoryType.CONVERSATION,
+            importance=turn.metadata.get("importance", 5)
+        )
+
+# Reconstruct conversation context from memories
+conversation_memories = memory_manager.search_memories(
+    user_id=user_id,
+    memory_type=MemoryType.CONVERSATION,
+    limit=20
+)
+history = History()
+for memory in conversation_memories:
+    # Parse role and content from memory
+    if ": " in memory.content:
+        role, content = memory.content.split(": ", 1)
+        history.add_turn(role=role, content=content)
+```
+
 ## Key Advantages Over DSPy
 
 1. **Built-in Persistence**: No external memory services required
@@ -847,6 +929,7 @@ uv run --with logillm --with pydantic --with anthropic python examples/tutorials
 4. **Zero Dependencies**: Memory management built into LogiLLM
 5. **Structured Memory**: Rich memory types and metadata
 6. **User Isolation**: Built-in multi-user support
+7. **History Management**: Native History type for conversation tracking
 
 ## 🎓 What You've Learned
 

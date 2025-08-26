@@ -5,7 +5,7 @@ ZERO DEPENDENCIES - Uses only Python standard library.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 
 class AdapterError(Exception):
@@ -37,7 +37,7 @@ class BaseAdapter(ABC):
     @abstractmethod
     def format_prompt(
         self, signature, inputs: dict[str, Any], demos: Optional[list[dict[str, Any]]] = None
-    ) -> str:
+    ) -> Union[str, list[dict[str, Any]]]:
         """
         Format the prompt for the LLM.
 
@@ -47,7 +47,7 @@ class BaseAdapter(ABC):
             demos: Optional demonstrations to include
 
         Returns:
-            Formatted prompt string
+            Formatted prompt string or list of message dicts for multimodal content
         """
         pass
 
@@ -91,15 +91,26 @@ class BaseAdapter(ABC):
     # Backward compatibility methods
     def format(
         self, signature, inputs: dict[str, Any], demos: Optional[list[dict[str, Any]]] = None
-    ) -> list[dict[str, str]]:
+    ) -> list[dict[str, Any]]:
         """
-        Legacy format method for backward compatibility.
+        Format method that returns messages in provider format.
 
-        Returns messages in OpenAI format.
+        Returns messages that can contain multimodal content.
         """
-        prompt = self.format_prompt(signature, inputs, demos)
+        prompt_or_messages = self.format_prompt(signature, inputs, demos)
 
-        # Convert to message format
+        # If format_prompt already returned messages (multimodal case), use them directly
+        if isinstance(prompt_or_messages, list):
+            # Add system message if not already present and signature has instructions
+            if hasattr(signature, "instructions") and signature.instructions:
+                # Check if first message is system
+                if not prompt_or_messages or prompt_or_messages[0].get("role") != "system":
+                    prompt_or_messages.insert(
+                        0, {"role": "system", "content": signature.instructions}
+                    )
+            return prompt_or_messages
+
+        # Otherwise convert string prompt to message format
         messages = []
 
         # Add system message if signature has instructions
@@ -107,7 +118,7 @@ class BaseAdapter(ABC):
             messages.append({"role": "system", "content": signature.instructions})
 
         # Add the formatted prompt as user message
-        messages.append({"role": "user", "content": prompt})
+        messages.append({"role": "user", "content": prompt_or_messages})
 
         return messages
 

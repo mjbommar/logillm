@@ -21,6 +21,7 @@ class TestExamplesValidation:
     """Validate that all examples actually work with real APIs."""
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_hello_world_example(self, openai_provider_registered):
         """Test hello_world.py example works."""
         from logillm.core.predict import Predict
@@ -37,6 +38,7 @@ class TestExamplesValidation:
         assert result.usage.tokens.output_tokens > 0
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_classification_example(self, openai_provider_registered):
         """Test classification.py example works."""
         from logillm.core.predict import Predict
@@ -53,6 +55,7 @@ class TestExamplesValidation:
         assert "positive" in result.outputs["sentiment"].lower()
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_multi_step_reasoning_example(self, openai_provider_registered):
         """Test multi_step_reasoning.py example works."""
         from logillm.core.predict import ChainOfThought, Predict
@@ -75,6 +78,7 @@ class TestExamplesValidation:
         assert "391" in str(cot_result.outputs["answer"])
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_rag_simple_example(self, openai_provider_registered):
         """Test rag_simple.py example works."""
         from logillm.core.predict import Predict
@@ -129,6 +133,7 @@ class TestExamplesValidation:
         assert "Paris" in result.outputs["answer"]
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_math_fraction_handling(self, openai_provider_registered):
         """Test fraction handling from hello_world example."""
         from fractions import Fraction
@@ -168,6 +173,7 @@ class TestExamplesValidation:
             pytest.fail(f"Unexpected type {type(answer)} for Fraction field")
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_structured_output_example(self, openai_provider_registered):
         """Test structured output capabilities."""
         from logillm.core.predict import Predict

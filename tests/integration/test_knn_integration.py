@@ -41,6 +41,7 @@ class TestKNNIntegration:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_simple_embedder_integration(self):
         """Test SimpleEmbedder with realistic text similarity."""
         embedder = SimpleEmbedder(max_features=100, normalize=True)
@@ -79,6 +80,7 @@ class TestKNNIntegration:
     @pytest.mark.integration
     @pytest.mark.openai
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_llm_embedder_integration(self):
         """Test LLMEmbedder with OpenAI (if available)."""
         try:
@@ -114,6 +116,7 @@ class TestKNNIntegration:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_knn_retrieval_integration(self):
         """Test KNN retrieval with realistic examples."""
         # Create training set with math problems
@@ -152,6 +155,7 @@ class TestKNNIntegration:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_knn_different_queries_get_different_demos(self):
         """Test that different queries retrieve different demonstrations."""
         trainset = [
@@ -201,6 +205,7 @@ class TestKNNFewShotIntegration:
     @pytest.mark.integration
     @pytest.mark.openai
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_knn_improves_qa_accuracy(self):
         """Test that KNN demonstrations improve QA accuracy."""
         try:
@@ -269,6 +274,7 @@ class TestKNNFewShotIntegration:
     @pytest.mark.integration
     @pytest.mark.openai
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_knn_with_semantic_similarity(self):
         """Test KNN with semantically similar examples."""
         try:
@@ -346,6 +352,7 @@ class TestKNNFewShotIntegration:
     @pytest.mark.integration
     @pytest.mark.openai
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_knn_dynamic_selection(self):
         """Test that KNN dynamically selects different demos for different queries."""
         try:
@@ -414,6 +421,7 @@ class TestKNNFewShotIntegration:
     @pytest.mark.integration
     @pytest.mark.openai
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_knn_with_bootstrap_fallback(self):
         """Test KNN with bootstrap fallback integration."""
         try:

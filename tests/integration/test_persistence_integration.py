@@ -26,6 +26,7 @@ class TestPersistenceIntegration:
     @pytest.mark.integration
     @pytest.mark.openai
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_save_and_load_basic_module(self):
         """Test saving and loading a basic module with real predictions."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -57,6 +58,7 @@ class TestPersistenceIntegration:
     @pytest.mark.integration
     @pytest.mark.openai
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_save_and_load_with_provider_config(self):
         """Test persistence includes provider configuration."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -93,6 +95,7 @@ class TestPersistenceIntegration:
     @pytest.mark.integration
     @pytest.mark.openai
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_save_load_complex_signature(self):
         """Test persistence with complex signature types."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -122,6 +125,7 @@ class TestPersistenceIntegration:
     @pytest.mark.integration
     @pytest.mark.openai
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_persistence_version_compatibility(self):
         """Test version compatibility warnings and handling."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -163,6 +167,7 @@ class TestPersistenceIntegration:
     @pytest.mark.integration
     @pytest.mark.openai
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_round_trip_preservation(self):
         """Test that save/load preserves module behavior exactly."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -225,6 +230,7 @@ class TestPersistenceIntegration:
     @pytest.mark.integration
     @pytest.mark.openai
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_persistence_error_handling(self):
         """Test error handling in persistence operations."""
         with tempfile.TemporaryDirectory() as tmp_dir:

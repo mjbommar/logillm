@@ -265,6 +265,292 @@ class CustomModule(Module):
         return await self.prog(input=input)
 ```
 
+## Complex Type Migration
+
+LogiLLM provides enhanced type support beyond DSPy's capabilities:
+
+### Generic Types
+
+**DSPy:**
+```python
+# DSPy struggles with complex generic types
+class DataSignature(dspy.Signature):
+    items: list = dspy.InputField()  # No element type
+    mapping: dict = dspy.OutputField()  # No key/value types
+```
+
+**LogiLLM:**
+```python
+from logillm import Signature, InputField, OutputField
+
+# Full generic type support
+class DataSignature(Signature):
+    items: 'list[str]' = InputField(desc="List of items")
+    mapping: 'dict[str, int]' = OutputField(desc="Word counts")
+    nested: 'dict[str, list[float]]' = OutputField(desc="Nested structure")
+```
+
+### Union and Optional Types
+
+**DSPy:**
+```python
+# DSPy has limited Union support
+class ProcessingSignature(dspy.Signature):
+    # Cannot easily express Union types
+    data: str = dspy.InputField()
+    result: str = dspy.OutputField()
+```
+
+**LogiLLM:**
+```python
+# Full Union and Optional support
+class ProcessingSignature(Signature):
+    data: 'Union[str, bytes]' = InputField(desc="Input data")
+    result: 'Optional[dict]' = OutputField(desc="May return None")
+    # Modern Python union syntax also supported
+    output: 'str | int | float' = OutputField(desc="Multiple types")
+```
+
+### Multimodal Types
+
+**DSPy:**
+```python
+# DSPy doesn't have built-in multimodal types
+class ImageSignature(dspy.Signature):
+    # Must handle images as strings or bytes
+    image_data: str = dspy.InputField()
+    caption: str = dspy.OutputField()
+```
+
+**LogiLLM:**
+```python
+from logillm import Signature, InputField, OutputField
+from logillm.core.signatures.types import Image, Audio, Tool, History
+
+# Native multimodal support
+class MultimodalSignature(Signature):
+    image: Image = InputField(desc="Input image")
+    audio: Audio = InputField(desc="Audio clip")
+    tools: 'list[Tool]' = InputField(desc="Available tools")
+    history: History = InputField(desc="Conversation history")
+    analysis: str = OutputField(desc="Multimodal analysis")
+
+# Easy image handling
+sig = MultimodalSignature()
+result = sig(
+    image=Image.from_path("photo.jpg"),
+    audio=Audio.from_path("clip.wav"),
+    tools=[Tool(name="search", func=search_func)],
+    history=History.from_messages([...])
+)
+```
+
+### Field Validation
+
+**DSPy:**
+```python
+# DSPy uses Pydantic for validation
+from pydantic import Field
+
+class ValidatedSignature(dspy.Signature):
+    email: str = dspy.InputField(
+        desc="Email address"
+        # No built-in validation
+    )
+    age: int = dspy.OutputField()
+```
+
+**LogiLLM:**
+```python
+# Rich validation without Pydantic dependency
+class ValidatedSignature(Signature):
+    email: str = InputField(
+        desc="Email address",
+        pattern=r'^[\w\.-]+@[\w\.-]+\.\w+$',  # Regex validation
+        min_length=5,
+        max_length=100
+    )
+    age: int = OutputField(
+        desc="Person's age",
+        ge=0,  # Greater or equal to 0
+        le=150  # Less or equal to 150
+    )
+    category: str = OutputField(
+        desc="Classification",
+        choices=["A", "B", "C"]  # Enum-like validation
+    )
+```
+
+### Custom Types
+
+**DSPy:**
+```python
+# DSPy requires workarounds for custom types
+from pydantic import BaseModel
+
+class CustomData(BaseModel):
+    value: int
+    metadata: dict
+
+class CustomSignature(dspy.Signature):
+    # Must serialize/deserialize manually
+    data: str = dspy.InputField()  # JSON string
+    result: str = dspy.OutputField()  # JSON string
+```
+
+**LogiLLM:**
+```python
+# Direct custom type support
+@dataclass
+class CustomData:
+    value: int
+    metadata: dict
+
+# Register custom types
+custom_types = {"CustomData": CustomData}
+
+# Use in signatures
+sig = Signature(
+    "data: CustomData -> result: CustomData",
+    custom_types=custom_types
+)
+
+# Or in class-based signatures
+class CustomSignature(Signature):
+    data: CustomData = InputField(desc="Custom input")
+    result: CustomData = OutputField(desc="Custom output")
+```
+
+### Complex String Signatures
+
+**DSPy:**
+```python
+# DSPy string signatures are limited
+qa = dspy.Predict("question -> answer")
+# Cannot specify types in string format
+```
+
+**LogiLLM:**
+```python
+# Rich type support in string signatures
+from logillm import Predict
+
+# Simple
+qa = Predict("question -> answer")
+
+# With types
+qa = Predict("question: str -> answer: str, confidence: float")
+
+# Complex types
+processor = Predict(
+    "items: list[str], options: dict[str, bool] -> "
+    "result: dict[str, list[int]], metadata: Optional[dict]"
+)
+
+# Multimodal in string format
+analyzer = Predict(
+    "image: Image, prompt: str -> "
+    "description: str, objects: list[dict]"
+)
+```
+
+### Type Inference from Examples
+
+**DSPy:**
+```python
+# DSPy doesn't infer types from examples
+examples = [
+    {"input": {"x": 1}, "output": {"y": 2}},
+    {"input": {"x": 3}, "output": {"y": 6}}
+]
+# Must manually define signature
+```
+
+**LogiLLM:**
+```python
+from logillm.core.signatures.parser import infer_signature_from_examples
+
+# Automatic type inference
+examples = [
+    {"input": {"numbers": [1, 2, 3]}, "output": {"sum": 6}},
+    {"input": {"numbers": [4, 5]}, "output": {"sum": 9}}
+]
+
+# Infers: numbers: list[int] -> sum: int
+fields = infer_signature_from_examples(examples)
+sig = Signature.from_dict(fields)
+```
+
+### Migration Example: Complex Types
+
+**Original DSPy with Limited Types:**
+```python
+import dspy
+from pydantic import BaseModel, Field
+
+class AnalysisInput(BaseModel):
+    text: str
+    metadata: dict
+    options: list
+
+class AnalysisSignature(dspy.Signature):
+    # Limited type expressiveness
+    input_data: str = dspy.InputField()  # Must serialize
+    output: str = dspy.OutputField()
+
+analyzer = dspy.Predict(AnalysisSignature)
+```
+
+**Migrated to LogiLLM with Rich Types:**
+```python
+from logillm import Signature, InputField, OutputField, Predict
+from logillm.core.signatures.types import Image
+
+class AnalysisSignature(Signature):
+    '''Advanced analysis with complex types'''
+    
+    # Rich type support
+    text: str = InputField(
+        desc="Input text",
+        min_length=10,
+        max_length=1000
+    )
+    metadata: 'dict[str, Any]' = InputField(
+        desc="Metadata dictionary"
+    )
+    options: 'list[str]' = InputField(
+        desc="Processing options",
+        choices=["fast", "balanced", "thorough"]
+    )
+    image: 'Optional[Image]' = InputField(
+        desc="Optional image input"
+    )
+    
+    # Complex output types
+    categories: 'list[str]' = OutputField(
+        desc="Detected categories"
+    )
+    scores: 'dict[str, float]' = OutputField(
+        desc="Category confidence scores"
+    )
+    entities: 'list[dict[str, Any]]' = OutputField(
+        desc="Extracted entities with properties"
+    )
+    confidence: float = OutputField(
+        desc="Overall confidence",
+        ge=0.0,
+        le=1.0
+    )
+
+# Or use string syntax with complex types
+analyzer = Predict(
+    "text: str, metadata: dict[str, Any], options: list[str], "
+    "image: Optional[Image] -> "
+    "categories: list[str], scores: dict[str, float], "
+    "entities: list[dict], confidence: float"
+)
+```
+
 ## Feature Improvements in LogiLLM
 
 ### 1. Zero Dependencies

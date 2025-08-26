@@ -29,6 +29,15 @@ classifier = Predict("text, context -> category, confidence: float")
 
 # With type hints
 math = Predict("problem: str -> reasoning: str, solution: float")
+
+# Complex types (NEW)
+analyzer = Predict("items: list[str] -> summary: dict[str, int]")
+
+# Optional types (NEW)
+extractor = Predict("text: str -> result: Optional[dict]")
+
+# Union types with pipe syntax (NEW)
+processor = Predict("data: str | bytes -> processed: bool")
 ```
 
 ### 2. Class-Based Signatures
@@ -62,6 +71,33 @@ sig = make_signature(fields, instructions="Answer questions")
 ## Field Types
 
 Based on the actual implementation in `logillm/core/signatures/fields.py`:
+
+### Supported Python Types
+
+```python
+# Basic types
+text: str
+count: int
+score: float
+flag: bool
+
+# Generic types (NEW)
+items: list[str]
+mapping: dict[str, int]
+coords: tuple[float, float]
+tags: set[str]
+
+# Optional types (NEW)
+result: Optional[str]
+value: str | None  # Alternative syntax
+
+# Union types (NEW)
+data: Union[str, int]
+input: str | bytes  # Pipe syntax
+
+# Fractions (NEW)
+ratio: Fraction
+```
 
 ### InputField and OutputField
 
@@ -130,19 +166,118 @@ sig = parse_signature_string("text: str -> category: str, score: float")
 sig = parse_signature_string("question|User's question -> answer|Generated response")
 ```
 
-## Validation
+## Validation (Enhanced)
 
-Signatures validate inputs and outputs automatically:
+Signatures provide comprehensive validation with type coercion and constraints:
 
 ```python
 class StrictSignature(Signature):
-    number: int = InputField(desc="Must be an integer")
+    # Required vs optional fields (NEW)
+    required_field: str = InputField()  # Required, no default
+    optional_field: str = InputField(default=None)  # Optional with default
+    
+    # Type coercion (NEW)
+    number: int = InputField()  # "42" -> 42 automatically
+    score: float = InputField()  # 3 -> 3.0 automatically
+    
+    # Validation result
     result: float = OutputField(desc="Calculated result")
 
-module = Predict(signature=StrictSignature)
+# Validation methods (NEW)
+validated_inputs = StrictSignature.validate_inputs(
+    required_field="test",
+    number="42"  # Automatically converted to int
+)
+# Returns: {"required_field": "test", "number": 42, "optional_field": None}
 
-# The signature validates inputs
-validated_inputs = StrictSignature.validate_inputs(number="42")  # Converts if possible
+# Missing required field raises error
+try:
+    StrictSignature.validate_inputs()  # Missing required_field
+except ValueError as e:
+    print(e)  # "Required input field 'required_field' not provided"
+```
+
+### Field Constraints (NEW)
+
+```python
+from logillm.core.signatures.spec import FieldSpec
+from logillm.core.signatures.utils import coerce_value_to_spec
+
+# String constraints
+spec = FieldSpec(
+    name="username",
+    python_type=str,
+    constraints={"min_length": 3, "max_length": 20}
+)
+
+# Numeric constraints  
+spec = FieldSpec(
+    name="age",
+    python_type=int,
+    constraints={"min_value": 0, "max_value": 150}
+)
+
+# Pattern validation
+spec = FieldSpec(
+    name="email",
+    python_type=str,
+    constraints={"pattern": r"^[\w\.]+@[\w\.]+$"}
+)
+
+# Choice/enum constraints
+spec = FieldSpec(
+    name="color",
+    python_type=str,
+    constraints={"choices": ["red", "green", "blue"]}
+)
+```
+
+## Multimodal Types (NEW)
+
+LogiLLM supports multimodal inputs and outputs for LLMs that handle images, audio, and tools:
+
+```python
+from logillm.core.signatures.types import Image, Audio, Tool, History
+
+# Image support
+class VisionSignature(Signature):
+    image: Image = InputField(desc="Image to analyze")
+    caption: str = OutputField(desc="Generated caption")
+
+# Load images multiple ways
+img = Image.from_path("photo.jpg")
+img = Image.from_url("https://example.com/image.png") 
+img = Image.from_base64(b64_string)
+
+# Audio support
+class TranscriptionSignature(Signature):
+    audio: Audio = InputField(desc="Audio to transcribe")
+    transcript: str = OutputField(desc="Text transcription")
+
+audio = Audio.from_path("recording.mp3")
+audio = Audio.from_url("https://example.com/audio.wav")
+
+# Tool/function calling
+class ToolSignature(Signature):
+    query: str = InputField()
+    tool_calls: list[Tool] = OutputField(desc="Functions to execute")
+
+tool = Tool(
+    name="calculator",
+    description="Performs calculations",
+    parameters={"expression": "string"},
+    function=lambda expression: eval(expression)
+)
+
+# Conversation history
+class ChatSignature(Signature):
+    history: History = InputField(desc="Previous messages")
+    response: str = OutputField(desc="Assistant response")
+
+history = History(messages=[
+    {"role": "user", "content": "Hello"},
+    {"role": "assistant", "content": "Hi there!"}
+])
 ```
 
 ## Advanced Features
@@ -163,7 +298,7 @@ updated_sig = QASignature.with_updated_field(
 ### Signature from Functions
 
 ```python
-from logillm.core.signatures import signature_from_function
+from logillm.core.signatures.parser import signature_from_function
 
 def process_text(text: str, max_length: int = 100) -> str:
     """Process and summarize text."""
@@ -171,6 +306,46 @@ def process_text(text: str, max_length: int = 100) -> str:
 
 # Create signature from function
 sig = signature_from_function(process_text)
+```
+
+### Signature from Examples (NEW)
+
+```python
+from logillm.core.signatures.parser import infer_signature_from_examples
+
+# Infer signature from input/output examples
+examples = [
+    {
+        "input": {"question": "What is 2+2?"},
+        "output": {"answer": "4", "confidence": 0.99}
+    },
+    {
+        "input": {"question": "Capital of France?"},
+        "output": {"answer": "Paris", "confidence": 0.95}
+    }
+]
+
+# Automatically infers types from values
+fields = infer_signature_from_examples(examples)
+# Creates: question: str -> answer: str, confidence: float
+```
+
+### Custom Type Support (NEW)
+
+```python
+from logillm.core.signatures import make_signature
+
+# Define custom types
+class Document:
+    def __init__(self, text: str, metadata: dict):
+        self.text = text
+        self.metadata = metadata
+
+# Use custom types in signatures
+sig = make_signature(
+    "doc: Document -> summary: str",
+    custom_types={"Document": Document}
+)
 ```
 
 ## Integration with Modules
@@ -204,8 +379,12 @@ result = fact_checker(claim="The Earth is flat")
 |---------|------|---------|
 | **Dependencies** | Requires Pydantic | Works with or without |
 | **String Syntax** | Limited | Full support with types |
-| **Metaclass** | Complex metaclass magic | Clean implementation |
-| **Validation** | Pydantic-only | Flexible validation |
+| **Complex Types** | AST parsing | Safe evaluation with brackets |
+| **Multimodal Types** | Basic | Image, Audio, Tool, History |
+| **Type Inference** | Frame introspection | Explicit custom_types |
+| **Field Validation** | Pydantic-only | Built-in + constraints |
+| **Required Fields** | Pydantic behavior | Proper sentinel values |
+| **Metaclass** | Complex magic | Clean implementation |
 | **Dynamic Creation** | Limited | Full factory support |
 
 ## Best Practices

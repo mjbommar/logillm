@@ -5,7 +5,7 @@ ZERO DEPENDENCIES - Uses only Python standard library.
 """
 
 import json
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from ..types import AdapterFormat
 from .base import BaseAdapter, ParseError
@@ -26,8 +26,23 @@ class ChatAdapter(BaseAdapter):
 
     def format_prompt(
         self, signature, inputs: dict[str, Any], demos: Optional[list[dict[str, Any]]] = None
-    ) -> str:
-        """Format as chat messages."""
+    ) -> Union[str, list[dict[str, Any]]]:
+        """Format as chat messages, supporting multimodal content."""
+        from ..signatures.types import Audio, History, Image
+
+        # Check if inputs contain multimodal content
+        has_multimodal = False
+        for value in inputs.values():
+            if isinstance(value, (Image, Audio, History)):
+                has_multimodal = True
+                break
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, (Image, Audio)):
+                        has_multimodal = True
+                        break
+
+        # Build messages list
         messages = []
 
         # System message with instructions
@@ -83,14 +98,47 @@ class ChatAdapter(BaseAdapter):
                     demo_output += f"{key}: {value}\n"
                 messages.append({"role": "assistant", "content": demo_output})
 
-        # Add current input
-        user_msg = "Input:\n"
-        for key, value in inputs.items():
-            user_msg += f"{key}: {value}\n"
-        messages.append({"role": "user", "content": user_msg})
+        # Handle current input
+        if has_multimodal:
+            # Build multimodal user message
+            content_parts = []
+            content_parts.append("Input:\n")
 
-        # Convert to string format for the prompt
-        # This is a simplified version - real implementation would return messages list
+            for key, value in inputs.items():
+                if isinstance(value, History):
+                    # History should be converted to messages
+                    if hasattr(value, "to_messages"):
+                        return value.to_messages()
+                    else:
+                        content_parts.append(f"{key}: {str(value)}\n")
+                elif isinstance(value, (Image, Audio)):
+                    # Add label then the media object
+                    content_parts.append(f"{key}: ")
+                    content_parts.append(value)
+                    content_parts.append("\n")
+                elif isinstance(value, list):
+                    content_parts.append(f"{key}:\n")
+                    for item in value:
+                        if isinstance(item, (Image, Audio)):
+                            content_parts.append(item)
+                        else:
+                            content_parts.append(str(item))
+                        content_parts.append("\n")
+                else:
+                    content_parts.append(f"{key}: {value}\n")
+
+            messages.append({"role": "user", "content": content_parts})
+
+            # Return messages directly for multimodal
+            return messages
+        else:
+            # Add current input as string
+            user_msg = "Input:\n"
+            for key, value in inputs.items():
+                user_msg += f"{key}: {value}\n"
+            messages.append({"role": "user", "content": user_msg})
+
+        # Convert to string format for non-multimodal
         prompt = ""
         for msg in messages:
             role = msg["role"]

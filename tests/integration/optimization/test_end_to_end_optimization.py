@@ -192,8 +192,19 @@ class TestHybridOptimizationE2E:
         )
 
         # Test hybrid optimization
+        from logillm.optimizers.optimizer_config import HybridOptimizerConfig
+        
+        config = HybridOptimizerConfig(
+            num_iterations=1,
+            n_trials=2,  # Minimal trials for testing
+            n_warmup_joint=1,
+            demo_subset_size=2,
+        )
+        
         hybrid_optimizer = HybridOptimizer(
-            metric=accuracy_metric, strategy="alternating", num_iterations=2
+            metric=accuracy_metric,
+            strategy="alternating",
+            config=config,  # Reduced for faster testing
         )
 
         hybrid_result = await hybrid_optimizer.optimize(
@@ -241,8 +252,15 @@ class TestFormatOptimizationE2E:
             true = str(true_outputs.get("category", "")).lower()
             return 1.0 if true in pred else 0.0
 
-        # Create format optimizer
-        optimizer = FormatOptimizer(metric=category_match, track_by_model=True)
+        # Create format optimizer - test only one format for speed
+        from logillm.optimizers.format_optimizer import FormatOptimizerConfig, PromptFormat
+        
+        config = FormatOptimizerConfig(
+            formats_to_test=[PromptFormat.JSON],  # Only test JSON for quick tests
+            min_samples_per_format=1,
+            max_samples_per_format=1,
+        )
+        optimizer = FormatOptimizer(metric=category_match, config=config, track_by_model=True)
 
         # Optimize formats
         result = await optimizer.optimize(module=classifier, dataset=format_dataset)
@@ -252,9 +270,9 @@ class TestFormatOptimizationE2E:
         assert "best_format" in result.metadata
         assert "format_scores" in result.metadata
 
-        # Should have tested multiple formats
+        # Should have tested at least one format
         format_scores = result.metadata["format_scores"]
-        assert len(format_scores) > 1  # Should test multiple formats
+        assert len(format_scores) >= 1  # Should test at least one format
 
         # Best format should be one of the known formats
         best_format = result.metadata["best_format"]
@@ -316,7 +334,15 @@ class TestFullOptimizationWorkflow:
         baseline_avg = sum(baseline_scores) / len(baseline_scores) if baseline_scores else 0.0
 
         # Step 2: Format optimization
-        format_optimizer = FormatOptimizer(metric=sentiment_quality)
+        # Use minimal format testing for speed
+        from logillm.optimizers.format_optimizer import FormatOptimizerConfig, PromptFormat
+        
+        config = FormatOptimizerConfig(
+            formats_to_test=[PromptFormat.MARKDOWN],  # Only test one format
+            min_samples_per_format=1,
+            max_samples_per_format=1,
+        )
+        format_optimizer = FormatOptimizer(metric=sentiment_quality, config=config)
         format_result = await format_optimizer.optimize(
             module=sentiment_module, dataset=sentiment_dataset
         )

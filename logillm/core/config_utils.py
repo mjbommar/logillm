@@ -24,6 +24,9 @@ def set_config_value(obj: Any, key: str, value: Any) -> None:
     if isinstance(config, dict):
         # Config is a dict - use dictionary access
         config[key] = value
+    elif hasattr(config, "update") and callable(config.update):
+        # Config has an update method - use it (for MagicMock compatibility)
+        config.update({key: value})
     elif hasattr(config, "__setattr__"):
         # Config is an object - try to set attribute
         try:
@@ -150,7 +153,15 @@ def set_hyperparameter(obj: Any, param: str, value: Any) -> None:
 
     # Also set on provider if present
     if hasattr(obj, "provider") and obj.provider:
-        set_config_value(obj.provider, param, value)
+        # Try to set on provider's config first
+        if hasattr(obj.provider, "config"):
+            set_config_value(obj.provider, param, value)
+        # Also set directly on provider as an attribute (for compatibility)
+        if hasattr(obj.provider, "__setattr__"):
+            try:
+                setattr(obj.provider, param, value)
+            except (AttributeError, TypeError):
+                pass
 
 
 def get_hyperparameter(obj: Any, param: str, default: Any = None) -> Any:

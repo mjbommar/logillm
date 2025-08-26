@@ -111,7 +111,7 @@ class AnthropicProvider(Provider):
             api_key=api_key, base_url=base_url, timeout=self.timeout, max_retries=0
         )
 
-    async def complete(self, messages: list[dict[str, str]], **kwargs: Any) -> Completion:
+    async def complete(self, messages: list[dict[str, Any]], **kwargs: Any) -> Completion:
         """Generate completion using Anthropic API.
 
         Args:
@@ -215,8 +215,8 @@ class AnthropicProvider(Provider):
         )
 
     def _convert_messages(
-        self, messages: list[dict[str, str]]
-    ) -> tuple[str | None, list[dict[str, str]]]:
+        self, messages: list[dict[str, Any]]
+    ) -> tuple[str | None, list[dict[str, Any]]]:
         """Convert OpenAI-style messages to Anthropic format.
 
         Returns:
@@ -231,17 +231,31 @@ class AnthropicProvider(Provider):
 
             if role == "system":
                 # Anthropic uses a separate system parameter
-                if system_prompt:
-                    system_prompt += "\n\n" + content
+                # System messages must be strings
+                if isinstance(content, str):
+                    if system_prompt:
+                        system_prompt += "\n\n" + content
+                    else:
+                        system_prompt = content
                 else:
-                    system_prompt = content
+                    # Convert to string if not already
+                    content_str = str(content)
+                    if system_prompt:
+                        system_prompt += "\n\n" + content_str
+                    else:
+                        system_prompt = content_str
             elif role == "user":
-                anthropic_messages.append({"role": "user", "content": content})
+                # Convert multimodal content if needed
+                converted_content = self._convert_multimodal_content(content)
+                anthropic_messages.append({"role": "user", "content": converted_content})
             elif role == "assistant":
-                anthropic_messages.append({"role": "assistant", "content": content})
+                # Assistant messages are typically text, but handle multimodal just in case
+                converted_content = self._convert_multimodal_content(content)
+                anthropic_messages.append({"role": "assistant", "content": converted_content})
             else:
                 # Unknown role, treat as user
-                anthropic_messages.append({"role": "user", "content": content})
+                converted_content = self._convert_multimodal_content(content)
+                anthropic_messages.append({"role": "user", "content": converted_content})
 
         # Ensure conversation starts with user message
         if anthropic_messages and anthropic_messages[0]["role"] != "user":
@@ -295,6 +309,95 @@ class AnthropicProvider(Provider):
             params["tool_choice"] = kwargs["tool_choice"]
 
         return params
+
+    def _convert_multimodal_content(self, content: Any) -> Any:
+        """Convert multimodal content to Anthropic format.
+
+        Handles:
+        - Image objects → Anthropic image blocks
+        - Audio objects → NotImplementedError (not supported)
+        - Mixed content arrays
+        - Text content passthrough
+
+        Args:
+            content: Content from a message (str, Image, Audio, or list)
+
+        Returns:
+            Content formatted for Anthropic API
+
+        Raises:
+            NotImplementedError: For unsupported content types like Audio
+        """
+        from ..core.signatures.types import Audio, History, Image
+
+        # Handle string content (no conversion needed)
+        if isinstance(content, str):
+            return content
+
+        # Handle Image object
+        if isinstance(content, Image):
+            # Anthropic expects an array of content blocks for images
+            return [
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": f"image/{content.format}",
+                        "data": content.to_base64()
+                    }
+                }
+            ]
+
+        # Handle Audio object - not supported by Anthropic
+        if isinstance(content, Audio):
+            raise NotImplementedError(
+                "Anthropic doesn't support audio input. "
+                "Consider transcribing audio to text before sending."
+            )
+
+        # Handle History object
+        if isinstance(content, History):
+            raise ProviderError(
+                "History objects should be converted to messages before calling provider"
+            )
+
+        # Handle list of mixed content
+        if isinstance(content, list):
+            content_parts = []
+
+            for item in content:
+                if isinstance(item, str):
+                    content_parts.append({
+                        "type": "text",
+                        "text": item
+                    })
+                elif isinstance(item, Image):
+                    content_parts.append({
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": f"image/{item.format}",
+                            "data": item.to_base64()
+                        }
+                    })
+                elif isinstance(item, Audio):
+                    raise NotImplementedError(
+                        "Anthropic doesn't support audio input"
+                    )
+                elif isinstance(item, dict):
+                    # Already formatted content block
+                    content_parts.append(item)
+                else:
+                    # Convert to text as fallback
+                    content_parts.append({
+                        "type": "text",
+                        "text": str(item)
+                    })
+
+            return content_parts
+
+        # Fallback: convert to string
+        return str(content)
 
     def _parse_completion(self, response: Any) -> Completion:
         """Parse Anthropic response into our Completion type.

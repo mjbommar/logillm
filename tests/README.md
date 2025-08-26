@@ -1,4 +1,8 @@
-# LogiLLM Tests
+# LogiLLM Testing Guide
+
+## Overview
+
+LogiLLM uses a comprehensive testing strategy to ensure reliability and correctness. We test against real LLM APIs to validate actual behavior, not just mocked responses.
 
 This directory contains comprehensive tests organized into two separate folders:
 
@@ -120,3 +124,86 @@ This two-folder approach ensures:
 2. **Real validation** from integration tests (actual API behavior)  
 3. **Clear separation** of concerns and responsibilities
 4. **Scalable testing** as the codebase grows
+
+## 🎯 Test Environments
+
+Control test behavior with `TEST_ENV`:
+
+```bash
+# Local development (fast, skips slow tests)
+TEST_ENV=local pytest
+
+# CI environment (standard timeouts)
+TEST_ENV=ci pytest
+
+# Full testing (long timeouts, all tests)
+TEST_ENV=full pytest
+```
+
+Configuration presets:
+- **local**: 30s timeout, skips slow tests, 2 retries
+- **ci**: 60s timeout, runs all tests, 3 retries
+- **full**: 300s timeout, runs all tests, 5 retries
+
+## 🎲 Handling Non-Deterministic LLMs
+
+LLMs produce varying outputs. We handle this with:
+
+### 1. Flexible Assertions
+```python
+# Instead of exact matching
+assert result == "expected"
+
+# Use pattern matching
+assert "positive" in result.lower()
+assert len(result) > 50
+```
+
+### 2. Retry Logic for Flaky Tests
+```python
+@pytest.mark.flaky  # Marks test for automatic retry
+async def test_creative_output():
+    # Test that might vary
+    pass
+```
+
+### 3. Mock Provider for Deterministic Tests
+```python
+from logillm.providers.mock import MockProvider
+
+def test_with_mock():
+    provider = MockProvider(response_text='{"answer": "42"}')
+    # Test logic without LLM variability
+```
+
+## 📝 Test Markers
+
+Extended markers for categorization:
+
+- `@pytest.mark.unit` - Fast unit tests with mocks
+- `@pytest.mark.integration` - Tests with real APIs
+- `@pytest.mark.openai` - Requires OpenAI API key
+- `@pytest.mark.anthropic` - Requires Anthropic API key
+- `@pytest.mark.slow` - Tests taking > 5 seconds
+- `@pytest.mark.flaky` - Non-deterministic tests
+- `@pytest.mark.optimization` - Optimizer tests
+- `@pytest.mark.multimodal` - Image/audio tests
+
+## 🐛 Common Issues
+
+### Test Timeouts
+- Reduce test data size
+- Use smaller configurations
+- Add explicit timeouts
+- Use `TEST_ENV=local` for development
+
+### Flaky Tests
+- Mark with `@pytest.mark.flaky`
+- Use flexible assertions
+- Add retry logic
+- Consider mocking for unit tests
+
+### API Rate Limits
+- Use mock provider for unit tests
+- Add delays between calls
+- Run integration tests separately

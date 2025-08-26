@@ -66,6 +66,10 @@ def infer_prefix(field_name: str) -> str:
     return " ".join(title_words)
 
 
+# Sentinel value to distinguish "no default" from "default=None"
+_NO_DEFAULT = object()
+
+
 @dataclass
 class FieldDescriptor:
     """Field descriptor for pure Python mode.
@@ -80,7 +84,7 @@ class FieldDescriptor:
     prefix: str | None = None
     format: str | None = None
     parser: Any | None = None
-    default: Any = None
+    default: Any = _NO_DEFAULT
     required: bool = True
     annotation: type | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -105,7 +109,11 @@ class FieldDescriptor:
 
     def is_required(self) -> bool:
         """Check if field is required."""
-        return self.required and self.default is None
+        return self.required and self.default is _NO_DEFAULT
+
+    def has_default(self) -> bool:
+        """Check if field has a default value."""
+        return self.default is not _NO_DEFAULT
 
 
 def _move_kwargs_to_json_schema(**kwargs):
@@ -164,7 +172,7 @@ def InputField(**kwargs):
         ...     question: str = InputField(desc="The question to answer")
         ...     context: str = InputField(desc="Relevant context", default="")
     """
-    if PYDANTIC_AVAILABLE:
+    if PYDANTIC_AVAILABLE and Field is not None:
         # Pydantic mode: Use native Field with json_schema_extra
         kwargs["__logillm_field_type"] = "input"
         return Field(**_move_kwargs_to_json_schema(**kwargs))
@@ -176,7 +184,7 @@ def InputField(**kwargs):
             prefix=kwargs.get("prefix"),
             format=kwargs.get("format"),
             parser=kwargs.get("parser"),
-            default=kwargs.get("default"),
+            default=kwargs.get("default", _NO_DEFAULT),
             required=kwargs.get("required", True),
             metadata={
                 k: v
@@ -209,7 +217,7 @@ def OutputField(**kwargs):
         ...     reasoning: str = OutputField(desc="Step-by-step reasoning")
         ...     answer: float = OutputField(desc="The numerical answer")
     """
-    if PYDANTIC_AVAILABLE:
+    if PYDANTIC_AVAILABLE and Field is not None:
         # Pydantic mode: Use native Field with json_schema_extra
         kwargs["__logillm_field_type"] = "output"
         return Field(**_move_kwargs_to_json_schema(**kwargs))
@@ -221,7 +229,7 @@ def OutputField(**kwargs):
             prefix=kwargs.get("prefix"),
             format=kwargs.get("format"),
             parser=kwargs.get("parser"),
-            default=kwargs.get("default"),
+            default=kwargs.get("default", _NO_DEFAULT),
             required=kwargs.get("required", True),
             metadata={
                 k: v
@@ -300,4 +308,5 @@ __all__ = [
     "get_field_prefix",
     "is_field",
     "PYDANTIC_AVAILABLE",
+    "_NO_DEFAULT",
 ]

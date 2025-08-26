@@ -60,6 +60,7 @@ class TestUsageTrackerIntegration:
         assert stats.total_cost == 0.0  # Mock is free
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_track_mock_provider_usage_async(self, tracker, mock_provider):
         """Test tracking usage from mock provider asynchronously."""
         messages = [{"role": "user", "content": "Hello, async world!"}]
@@ -113,6 +114,7 @@ class TestUsageTrackerIntegration:
             callback_manager.unregister(callback_id)
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_usage_tracking_callback_async_integration(self, tracker, mock_provider):
         """Test async integration with callback system."""
         callback = UsageTrackingCallback(tracker)
@@ -429,6 +431,7 @@ class TestUsageTrackerIntegration:
         assert latest_record.provider == "mock"
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_streaming_usage_tracking(self, tracker):
         """Test usage tracking with streaming responses (simulated)."""
         # Note: MockProvider doesn't support real streaming, so we simulate it

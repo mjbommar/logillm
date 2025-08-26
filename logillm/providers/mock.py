@@ -11,13 +11,20 @@ class MockProvider(Provider):
     """Mock provider for testing."""
 
     def __init__(
-        self, response_text: str = "Mock response", responses: list[str] | None = None, **kwargs
+        self, 
+        response_text: str = "Mock response", 
+        responses: list[str] | None = None,
+        latency: float = 0.0,
+        error_rate: float = 0.0,
+        **kwargs
     ):
         """Initialize mock provider.
 
         Args:
             response_text: Default response text
             responses: List of responses to cycle through
+            latency: Simulated latency in seconds
+            error_rate: Probability of error (0-1) 
             **kwargs: Additional arguments for Provider
         """
         # Extract responses before passing to parent
@@ -25,10 +32,13 @@ class MockProvider(Provider):
         self.response_index = 0
         self.response_text = response_text
         self.call_count = 0
+        self.latency = latency
+        self.error_rate = error_rate
 
         # Remove custom args before passing to parent
         filtered_kwargs = {
-            k: v for k, v in kwargs.items() if k not in ["responses", "response_text"]
+            k: v for k, v in kwargs.items() 
+            if k not in ["responses", "response_text", "latency", "error_rate"]
         }
 
         # Set default model if not provided
@@ -58,12 +68,21 @@ class MockProvider(Provider):
         """Generate mock completion."""
         self.call_count += 1
 
-        # Simulate some processing time
-        await asyncio.sleep(0.01)
+        # Simulate latency
+        if self.latency > 0:
+            await asyncio.sleep(self.latency)
+        else:
+            await asyncio.sleep(0.01)  # Default minimal latency
+
+        # Simulate errors
+        if self.error_rate > 0:
+            import random
+            if random.random() < self.error_rate:
+                raise Exception(f"Mock error (call #{self.call_count})")
 
         # Update metrics
         self._metrics["call_count"] = self.call_count
-        self._metrics["avg_latency"] = 0.01
+        self._metrics["avg_latency"] = self.latency if self.latency > 0 else 0.01
 
         # If a mock Completion object was set, return it directly
         if hasattr(self, "_mock_completion") and self._mock_completion:

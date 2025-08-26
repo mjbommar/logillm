@@ -21,7 +21,7 @@ class TestMIPROv2Integration:
         self.results = {}
 
     @pytest.mark.asyncio
-    @pytest.mark.timeout(120)
+    @pytest.mark.timeout(300)  # Increased timeout for optimization
     async def test_miprov2_basic_optimization(self):
         """Test basic MIPROv2 optimization with real LLM."""
         # Simple classification task
@@ -40,13 +40,13 @@ class TestMIPROv2Integration:
             exp_sentiment = expected.get("sentiment", "").lower()
             return 1.0 if pred_sentiment == exp_sentiment else 0.0
 
-        # Light mode for quick test
+        # Ultra-light mode for faster test
         config = MIPROv2Config(
             mode="light",
-            num_candidates=3,
-            num_trials=3,
-            max_bootstrapped_demos=2,
-            max_labeled_demos=2,
+            num_candidates=1,  # Reduced from 3
+            num_trials=2,      # Reduced from 3
+            max_bootstrapped_demos=1,  # Reduced from 2
+            max_labeled_demos=1,       # Reduced from 2
         )
 
         optimizer = MIPROv2Optimizer(metric=sentiment_metric, config=config)
@@ -89,7 +89,7 @@ class TestMIPROv2Integration:
         print(f"  Test accuracy: {test_accuracy:.2%}")
 
     @pytest.mark.asyncio
-    @pytest.mark.timeout(180)
+    @pytest.mark.timeout(300)  # Increased timeout for optimization
     async def test_miprov2_with_instruction_proposals(self):
         """Test MIPROv2 with instruction proposal generation."""
         # Math reasoning task

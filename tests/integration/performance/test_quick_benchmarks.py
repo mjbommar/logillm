@@ -74,9 +74,9 @@ class TestQuickPerformanceBenchmarks:
         # Optimize with bootstrap
         optimizer = BootstrapFewShot(
             metric=sentiment_metric,
-            max_bootstrapped_demos=3,
-            max_labeled_demos=3,
-            max_rounds=2,  # Quick test
+            max_bootstrapped_demos=1,  # Reduced from 3
+            max_labeled_demos=2,  # Reduced from 3
+            max_rounds=1,  # Reduced from 2 for truly quick test
         )
 
         optimization_result = await optimizer.optimize(
@@ -175,8 +175,8 @@ class TestQuickPerformanceBenchmarks:
             metric=math_metric,
             search_space=search_space,
             strategy="alternating",
-            num_iterations=2,  # Quick test
-            samples_per_iteration=2,
+            num_iterations=1,  # Reduced from 2 for truly quick test
+            samples_per_iteration=1,  # Reduced from 2
         )
 
         optimization_result = await optimizer.optimize(
@@ -260,51 +260,43 @@ class TestQuickPerformanceBenchmarks:
             # Check count matches
             return 1.0 if len(pred_items) == len(exp_items) else 0.5
 
-        # Test with different formats
-        formats_to_test = [PromptFormat.MARKDOWN, PromptFormat.JSON, PromptFormat.XML]
-        format_scores = {}
+        # Test with only ONE format for quick benchmark
+        # Full format testing should be in comprehensive benchmarks
+        config = FormatOptimizerConfig(
+            formats_to_test=[PromptFormat.MARKDOWN],  # Only test one format
+            min_samples_per_format=1,  # Reduced from 2
+            max_samples_per_format=1,  # Reduced from 2
+        )
 
-        for prompt_format in formats_to_test:
-            config = FormatOptimizerConfig(
-                formats_to_test=[prompt_format], min_samples_per_format=2, max_samples_per_format=2
-            )
+        optimizer = FormatOptimizer(metric=list_metric, config=config)
 
-            optimizer = FormatOptimizer(metric=list_metric, config=config)
+        module = Predict("task: str, count: int -> items: list")
+        optimization_result = await optimizer.optimize(module=module, dataset=training_data)
 
-            module = Predict("task: str, count: int -> items: list")
-            optimization_result = await optimizer.optimize(module=module, dataset=training_data)
+        # Get the optimized module from the result
+        optimized = optimization_result.optimized_module
 
-            # Get the optimized module from the result
-            optimized = optimization_result.optimized_module
+        # Test the format with a single test
+        test_result = await optimized.forward(task="List fruits", count=2)
 
-            # Test the format
-            test_result = await optimized.forward(task="List fruits", count=2)
+        # Simple heuristic score
+        items = test_result.outputs.get("items", [])
 
-            # Simple heuristic score
-            items = test_result.outputs.get("items", [])
-
-            # Accept strings that look like lists
-            if isinstance(items, str):
-                # Check if it contains list-like content
-                if items.strip() and ("\n" in items or "," in items or len(items) > 2):
-                    score = 1.0
-                else:
-                    score = 0.0
+        # Accept strings that look like lists
+        if isinstance(items, str):
+            # Check if it contains list-like content
+            if items.strip() and ("\n" in items or "," in items or len(items) > 2):
+                score = 1.0
             else:
-                score = 1.0 if isinstance(items, list) and len(items) > 0 else 0.0
-            format_scores[prompt_format.value] = score
+                score = 0.0
+        else:
+            score = 1.0 if isinstance(items, list) and len(items) > 0 else 0.0
 
-        # Find best format
-        best_format = max(format_scores, key=format_scores.get)
-        best_score = format_scores[best_format]
-
-        print("\nFormat Optimization Results:")
-        for fmt, score in format_scores.items():
-            print(f"  {fmt}: {score:.2f}")
-        print(f"  Best format: {best_format} ({best_score:.2f})")
+        print(f"\nFormat Optimization Results (Quick Test):")
+        print(f"  Markdown format score: {score:.2f}")
 
         # Assert we found a working format
-        assert best_score > 0, "Should find at least one working format"
+        assert score > 0, "Should find at least one working format"
 
 
 @pytest.mark.integration

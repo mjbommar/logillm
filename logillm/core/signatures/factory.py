@@ -167,9 +167,26 @@ class SignatureMeta(BaseMeta):  # type: ignore[misc]
     @classmethod
     def _create_pure_signature(mcs, name, bases, namespace, **kwargs):
         """Create a pure Python signature class."""
-        # Collect field definitions
-        field_definitions = {}
-        annotations = namespace.get("__annotations__", {})
+        # First, collect inherited field definitions from base classes
+        inherited_fields = {}
+        inherited_annotations = {}
+
+        for base in reversed(bases):  # Reverse to get correct MRO
+            if hasattr(base, "_field_definitions"):
+                # Deep copy inherited fields to avoid mutation
+                from copy import deepcopy
+
+                for field_name, field_def in base._field_definitions.items():
+                    inherited_fields[field_name] = deepcopy(field_def)
+            if hasattr(base, "__annotations__"):
+                inherited_annotations.update(base.__annotations__)
+
+        # Collect field definitions from this class
+        field_definitions = inherited_fields.copy()  # Start with inherited
+        annotations = inherited_annotations.copy()  # Start with inherited
+
+        # Update with annotations from this class
+        annotations.update(namespace.get("__annotations__", {}))
 
         for field_name, field_value in list(namespace.items()):
             if isinstance(field_value, FieldDescriptor):
@@ -299,7 +316,17 @@ def make_signature(
         A new Signature class
     """
     if isinstance(signature, str):
-        fields = _parse_signature_string(signature, custom_types)
+        from .parser import parse_signature_string
+
+        base_sig = parse_signature_string(signature, custom_types)
+        fields = {}
+        # Convert FieldSpec to field definitions
+        for name, spec in {**base_sig.input_fields, **base_sig.output_fields}.items():
+            from ..types import FieldType
+            from .fields import InputField, OutputField
+
+            field = InputField() if spec.field_type == FieldType.INPUT else OutputField()
+            fields[name] = (spec.python_type, field)
     else:
         fields = signature
 

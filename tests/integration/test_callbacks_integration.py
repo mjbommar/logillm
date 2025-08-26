@@ -33,6 +33,7 @@ class TestCallbackIntegrationWithMockProvider:
         clear_callbacks()
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_logging_callback_with_predict_module(self):
         """Test LoggingCallback with real Predict module execution."""
         # Set up logging callback
@@ -82,6 +83,7 @@ class TestCallbackIntegrationWithMockProvider:
         assert True  # If we get here without exceptions, the callbacks worked
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_metrics_callback_with_multiple_operations(self):
         """Test MetricsCallback tracking multiple operations."""
         metrics_callback = MetricsCallback()
@@ -128,6 +130,7 @@ class TestCallbackIntegrationWithMockProvider:
         assert metrics["module_durations_avg"] > 0
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_progress_callback_output(self):
         """Test ProgressCallback output with real operations."""
         import io
@@ -174,6 +177,7 @@ class TestCallbackIntegrationWithMockProvider:
         assert "🎉 Optimization finished" in output
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_provider_callbacks_with_mock_provider(self):
         """Test provider-related callbacks with MockProvider."""
         logging_callback = LoggingCallback()
@@ -222,6 +226,7 @@ class TestCallbackIntegrationWithMockProvider:
         assert "provider_durations_avg" in metrics
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_error_callback_handling(self):
         """Test error callback handling with real errors."""
         logging_callback = LoggingCallback()
@@ -250,6 +255,7 @@ class TestCallbackIntegrationWithMockProvider:
         assert metrics["error_in_forward"] == 1
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_callback_chain_with_real_workflow(self):
         """Test a complete workflow with multiple callback types."""
         # Set up all callbacks
@@ -381,6 +387,7 @@ class TestCallbackIntegrationWithMockProvider:
         assert metrics["module_starts"] == 1000
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_async_callback_performance(self):
         """Test async callback performance."""
         metrics_callback = MetricsCallback()
@@ -415,6 +422,7 @@ class TestCallbacksWithRealWorkflow:
         clear_callbacks()
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_nested_module_execution_tracking(self):
         """Test tracking nested module executions."""
         metrics_callback = MetricsCallback()
@@ -468,6 +476,7 @@ class TestCallbacksWithRealWorkflow:
         assert metrics["module_Predict"] == 1
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_batch_processing_callbacks(self):
         """Test callbacks during batch processing."""
         metrics_callback = MetricsCallback()

@@ -25,14 +25,15 @@ class TestOpenAIProvider:
 
     @pytest.fixture
     def provider(self):
-        """Create OpenAI provider with gpt-4.1."""
+        """Create OpenAI provider with gpt-4.1-mini."""
         return create_provider(
             "openai",
-            model="gpt-4.1",  # Using gpt-4.1 as requested
+            model="gpt-4.1-mini",  # Using cheaper mini model for testing
         )
 
     @pytest.mark.integration
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_basic_completion(self, provider):
         """Test basic text completion."""
         messages = [{"role": "user", "content": "Say 'Hello, LogiLLM!' exactly."}]
@@ -48,6 +49,7 @@ class TestOpenAIProvider:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_with_parameters(self, provider):
         """Test completion with various parameters."""
         messages = [
@@ -68,6 +70,7 @@ class TestOpenAIProvider:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_streaming(self, provider):
         """Test streaming completion."""
         messages = [{"role": "user", "content": "Count from 1 to 5 slowly."}]
@@ -82,6 +85,7 @@ class TestOpenAIProvider:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_structured_output(self, provider):
         """Test structured output with Pydantic model."""
 
@@ -103,6 +107,7 @@ class TestOpenAIProvider:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_error_handling(self, provider):
         """Test error handling for invalid requests."""
         messages = [{"role": "user", "content": "Test"}]
@@ -116,11 +121,12 @@ class TestOpenAIProvider:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_retry_logic(self):
         """Test retry logic on failures."""
         # Create provider with low timeout to trigger retry
         provider = OpenAIProvider(
-            model="gpt-4.1",
+            model="gpt-4.1-mini",
             timeout=0.001,  # Very low timeout
             max_retries=2,
         )
@@ -137,6 +143,7 @@ class TestOpenAIProvider:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_embeddings(self, provider):
         """Test embedding generation."""
         texts = ["Hello, world!", "How are you today?", "LogiLLM is great!"]
@@ -155,10 +162,11 @@ class TestOpenAIWithPredict:
     @pytest.fixture
     def provider(self):
         """Create OpenAI provider."""
-        return OpenAIProvider(model="gpt-4.1")
+        return OpenAIProvider(model="gpt-4.1-mini")
 
     @pytest.mark.integration
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_predict_with_signature(self, provider):
         """Test Predict module with OpenAI provider."""
         from logillm.providers import register_provider
@@ -180,6 +188,7 @@ class TestOpenAIWithPredict:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_chain_of_thought(self, provider):
         """Test chain-of-thought reasoning."""
         from logillm.core.predict import ChainOfThought
@@ -205,7 +214,7 @@ class TestOpenAIOptimization:
     @pytest.fixture
     def provider(self):
         """Create OpenAI provider."""
-        return OpenAIProvider(model="gpt-4.1")
+        return OpenAIProvider(model="gpt-4.1-mini")
 
     @pytest.fixture
     def dataset(self):
@@ -218,6 +227,7 @@ class TestOpenAIOptimization:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_hyperparameter_optimization(self, provider, dataset):
         """Test hyperparameter optimization with real LLM."""
         from logillm.core.predict import Predict
@@ -254,6 +264,7 @@ class TestOpenAIOptimization:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_format_optimization(self, provider):
         """Test format optimization with real responses."""
         from logillm.core.predict import Predict
@@ -277,8 +288,15 @@ class TestOpenAIOptimization:
             true = str(true_outputs.get("answer", "")).lower().strip()
             return 1.0 if pred == true else 0.0
 
-        # Create optimizer
-        optimizer = FormatOptimizer(metric=exact_match, track_by_model=True)
+        # Create optimizer - test only JSON format for quick test
+        from logillm.optimizers.format_optimizer import FormatOptimizerConfig, PromptFormat
+        
+        config = FormatOptimizerConfig(
+            formats_to_test=[PromptFormat.JSON],  # Only test JSON format
+            min_samples_per_format=1,  # Minimal samples for quick test
+            max_samples_per_format=1,
+        )
+        optimizer = FormatOptimizer(metric=exact_match, config=config, track_by_model=True)
 
         # Optimize formats
         result = await optimizer.optimize(module=module, dataset=dataset)

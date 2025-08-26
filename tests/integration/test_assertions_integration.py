@@ -22,6 +22,7 @@ class TestJSONValidationWorkflow:
     """Test JSON validation workflow with assertions."""
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_json_validation_success(self):
         """Test successful JSON validation workflow."""
         async with assertion_context("json_validation") as context:
@@ -43,6 +44,7 @@ class TestJSONValidationWorkflow:
             assert not context.has_failures()
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_json_validation_failure_and_recovery(self):
         """Test JSON validation failure and manual recovery."""
         async with assertion_context("json_validation") as context:
@@ -78,6 +80,7 @@ class TestDataValidationPipeline:
     """Test data validation pipeline with multiple assertion types."""
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_multi_assertion_pipeline(self):
         """Test pipeline with multiple assertion types."""
         async with assertion_context("data_pipeline") as context:
@@ -121,6 +124,7 @@ class TestModuleIntegration:
     """Test assertion integration with LogiLLM modules."""
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_module_with_assertions(self, isolated_module):
         """Test module with built-in assertions."""
 
@@ -166,6 +170,7 @@ class TestModuleIntegration:
         assert result.outputs["age_category"] == "adult"
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_module_assertion_failure(self, isolated_module):
         """Test module assertion failure."""
 
@@ -195,6 +200,7 @@ class TestBacktrackingWorkflow:
     """Test backtracking workflow with real scenarios."""
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_simple_backtracking_scenario(self):
         """Test simple backtracking scenario."""
         handler = BacktrackHandler(
@@ -238,6 +244,7 @@ class TestBacktrackingWorkflow:
         assert call_count == 2  # Should have been called twice
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_backtracking_exhaustion(self):
         """Test backtracking when all attempts are exhausted."""
         handler = BacktrackHandler(max_attempts=2)
@@ -266,6 +273,7 @@ class TestSuggestionGenerationWorkflow:
     """Test suggestion generation in real scenarios."""
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_comprehensive_suggestion_generation(self):
         """Test comprehensive suggestion generation."""
         generator = SuggestionGenerator()
@@ -294,6 +302,7 @@ class TestCustomAssertionWorkflow:
     """Test custom assertion workflows."""
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_business_logic_validation(self):
         """Test custom assertions for business logic validation."""
 
@@ -340,6 +349,7 @@ class TestComplexWorkflow:
     """Test complex workflow combining multiple features."""
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_user_registration_workflow(self, isolated_module):
         """Test complete user registration validation workflow."""
 
@@ -433,6 +443,7 @@ class TestSoftAssertionWorkflow:
     """Test soft assertion workflow that allows execution to continue."""
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_soft_assertions_continue_execution(self, isolated_module):
         """Test that soft assertions allow execution to continue."""
 
@@ -472,6 +483,7 @@ class TestRealWorldScenarios:
     """Test real-world scenarios with assertions."""
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_api_response_validation(self):
         """Test API response validation scenario."""
 
@@ -558,6 +570,7 @@ class TestRealWorldScenarios:
             assert all(r.passed for r in price_results), "Failed price type validation"
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_llm_output_validation(self):
         """Test LLM output validation scenario."""
 

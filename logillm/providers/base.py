@@ -90,7 +90,7 @@ class Provider(ParameterProvider):
         self.provider_params = kwargs
 
     @abstractmethod
-    async def complete(self, messages: list[dict[str, str]], **kwargs: Any) -> Completion:
+    async def complete(self, messages: list[dict[str, Any]], **kwargs: Any) -> Completion:
         """Generate completion from messages.
 
         Args:
@@ -115,7 +115,7 @@ class Provider(ParameterProvider):
         """
         ...
 
-    def complete_sync(self, messages: list[dict[str, str]], **kwargs: Any) -> Completion:
+    def complete_sync(self, messages: list[dict[str, Any]], **kwargs: Any) -> Completion:
         """Synchronous completion interface.
 
         This method provides a synchronous wrapper around the async complete method.

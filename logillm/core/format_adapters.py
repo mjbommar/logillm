@@ -7,22 +7,24 @@ to find the most effective format for a given task.
 import json
 import re
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Union
 
 
 class FormatAdapter(ABC):
     """Base class for format adapters."""
 
     @abstractmethod
-    def format_prompt(self, inputs: dict[str, Any], signature: Any) -> str:
-        """Format inputs into a prompt string.
+    def format_prompt(
+        self, inputs: dict[str, Any], signature: Any
+    ) -> Union[str, list[dict[str, Any]]]:
+        """Format inputs into a prompt string or message list.
 
         Args:
             inputs: Input fields and values
             signature: Signature defining expected I/O
 
         Returns:
-            Formatted prompt string
+            Formatted prompt string or list of message dicts for multimodal content
         """
         pass
 
@@ -54,9 +56,94 @@ class FormatAdapter(ABC):
 class ChatAdapter(FormatAdapter):
     """Standard chat format adapter (default)."""
 
-    def format_prompt(self, inputs: dict[str, Any], signature: Any) -> str:
-        """Format as natural language prompt."""
-        # Extract field descriptions from signature if available
+    def format_prompt(
+        self, inputs: dict[str, Any], signature: Any
+    ) -> Union[str, list[dict[str, Any]]]:
+        """Format as natural language prompt or message list for multimodal content."""
+        from logillm.core.signatures.types import Audio, History, Image
+
+        # Check if any inputs contain multimodal content
+        has_multimodal = False
+        for value in inputs.values():
+            if isinstance(value, (Image, Audio, History)):
+                has_multimodal = True
+                break
+            elif isinstance(value, list):
+                # Check if list contains multimodal content
+                for item in value:
+                    if isinstance(item, (Image, Audio)):
+                        has_multimodal = True
+                        break
+
+        # If multimodal content present, return message list format
+        if has_multimodal:
+            content_parts = []
+
+            if hasattr(signature, "input_fields"):
+                for field_name, field_spec in signature.input_fields.items():
+                    if field_name in inputs:
+                        desc = field_spec.desc if hasattr(field_spec, "desc") else field_name
+                        value = inputs[field_name]
+
+                        # Handle History objects
+                        if isinstance(value, History):
+                            # History should be converted to messages
+                            if hasattr(value, "to_messages"):
+                                return value.to_messages()
+                            else:
+                                # Fallback: convert to text representation
+                                content_parts.append(f"{desc}: {str(value)}")
+                        # Handle Image/Audio objects
+                        elif isinstance(value, (Image, Audio)):
+                            # Add description as text, then the media object
+                            content_parts.append(f"{desc}:")
+                            content_parts.append(value)
+                        # Handle lists that may contain multimodal
+                        elif isinstance(value, list):
+                            content_parts.append(f"{desc}:")
+                            for item in value:
+                                content_parts.append(item)
+                        else:
+                            # Regular text content
+                            content_parts.append(f"{desc}: {value}")
+            else:
+                # Fallback to simple key-value format
+                for key, value in inputs.items():
+                    if isinstance(value, History):
+                        if hasattr(value, "to_messages"):
+                            return value.to_messages()
+                        else:
+                            content_parts.append(f"{key}: {str(value)}")
+                    elif isinstance(value, (Image, Audio)):
+                        content_parts.append(f"{key}:")
+                        content_parts.append(value)
+                    elif isinstance(value, list):
+                        content_parts.append(f"{key}:")
+                        for item in value:
+                            content_parts.append(item)
+                    else:
+                        content_parts.append(f"{key}: {value}")
+
+            # Add output field hints if available
+            if hasattr(signature, "output_fields"):
+                output_hints = []
+                for field_name, field_spec in signature.output_fields.items():
+                    desc = field_spec.desc if hasattr(field_spec, "desc") else field_name
+                    # Add type hints for numeric fields
+                    if hasattr(field_spec, "annotation"):
+                        if field_spec.annotation is float:
+                            desc += " (provide as a decimal number between 0.0 and 1.0)"
+                        elif field_spec.annotation is int:
+                            desc += " (provide as an integer number)"
+                    output_hints.append(f"- {desc}")
+
+                if output_hints:
+                    content_parts.append("\nPlease provide:\n" + "\n".join(output_hints))
+
+            # Return as message list
+            return [{"role": "user", "content": content_parts}]
+
+        # No multimodal content - use original string format
         input_prompts = []
 
         if hasattr(signature, "input_fields"):
@@ -215,7 +302,9 @@ class ChatAdapter(FormatAdapter):
 class JSONAdapter(FormatAdapter):
     """JSON format adapter for structured I/O."""
 
-    def format_prompt(self, inputs: dict[str, Any], signature: Any) -> str:
+    def format_prompt(
+        self, inputs: dict[str, Any], signature: Any
+    ) -> Union[str, list[dict[str, Any]]]:
         """Format as JSON prompt."""
         prompt = "Input (JSON format):\n```json\n"
         prompt += json.dumps(inputs, indent=2)
@@ -297,7 +386,9 @@ class JSONAdapter(FormatAdapter):
 class MarkdownAdapter(FormatAdapter):
     """Markdown format adapter for readable structured output."""
 
-    def format_prompt(self, inputs: dict[str, Any], signature: Any) -> str:
+    def format_prompt(
+        self, inputs: dict[str, Any], signature: Any
+    ) -> Union[str, list[dict[str, Any]]]:
         """Format as Markdown prompt."""
         prompt = "## Input\n\n"
 
@@ -361,7 +452,9 @@ class MarkdownAdapter(FormatAdapter):
 class XMLAdapter(FormatAdapter):
     """XML format adapter for highly structured data."""
 
-    def format_prompt(self, inputs: dict[str, Any], signature: Any) -> str:
+    def format_prompt(
+        self, inputs: dict[str, Any], signature: Any
+    ) -> Union[str, list[dict[str, Any]]]:
         """Format as XML prompt."""
         prompt = "Input (XML format):\n```xml\n<input>\n"
 

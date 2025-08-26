@@ -131,6 +131,7 @@ class TestAvatarIntegration:
     """Integration tests for Avatar module with real LLM."""
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_avatar_tool_execution(self, math_signature, calculator_tool, openai_provider):
         """Test Avatar executing real tools with real LLM."""
         avatar = Avatar(
@@ -156,6 +157,7 @@ class TestAvatarIntegration:
         assert "128" in answer or "one hundred twenty-eight" in answer
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_avatar_with_complex_tools(
         self, research_signature, mock_search_tool, openai_provider
     ):
@@ -182,6 +184,7 @@ class TestAvatarIntegration:
         assert "ai" in answer or "artificial intelligence" in answer
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_avatar_error_recovery(self, math_signature, openai_provider):
         """Test Avatar handling of tool failures."""
 
@@ -214,6 +217,7 @@ class TestAvatarIntegration:
             assert error_found, "Should have recorded tool error"
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_avatar_max_iters_enforcement(
         self, math_signature, calculator_tool, openai_provider
     ):
@@ -231,6 +235,7 @@ class TestAvatarIntegration:
         assert len(result.actions) <= 2, "Should not exceed max_iters"
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_avatar_finish_tool_behavior(
         self, math_signature, calculator_tool, openai_provider
     ):
@@ -282,6 +287,7 @@ class TestAvatarOptimizerIntegration:
         return 1.0 if expected.lower() in actual.lower() else 0.0
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_avatar_optimizer_improves_performance(
         self, math_signature, calculator_tool, openai_provider
     ):
@@ -352,6 +358,7 @@ class TestAvatarOptimizerIntegration:
             pytest.skip(f"Couldn't optimize due to data distribution: {e}")
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_avatar_optimizer_with_mixed_performance(
         self, research_signature, mock_search_tool, openai_provider
     ):
@@ -408,6 +415,7 @@ class TestAvatarOptimizerIntegration:
             pytest.skip(f"Couldn't optimize due to score distribution: {e}")
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)  # 1 minute timeout
     async def test_avatar_with_no_tools(self, math_signature, openai_provider):
         """Test Avatar behavior with no tools except Finish."""
         avatar = Avatar(

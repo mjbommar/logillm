@@ -70,21 +70,27 @@ class OpenAIProvider(Provider):
         self.organization = organization
 
         # Initialize clients
-        self.client = OpenAIClient(
-            api_key=api_key,
-            organization=organization,
-            base_url=base_url,
-            timeout=self.timeout,
-            max_retries=0,  # We handle retries ourselves
-        )
+        if OpenAIClient is not None:
+            self.client = OpenAIClient(
+                api_key=api_key,
+                organization=organization,
+                base_url=base_url,
+                timeout=self.timeout,
+                max_retries=0,  # We handle retries ourselves
+            )
+        else:
+            self.client = None
 
-        self.async_client = AsyncOpenAIClient(
-            api_key=api_key,
-            organization=organization,
-            base_url=base_url,
-            timeout=self.timeout,
-            max_retries=0,
-        )
+        if AsyncOpenAIClient is not None:
+            self.async_client = AsyncOpenAIClient(
+                api_key=api_key,
+                organization=organization,
+                base_url=base_url,
+                timeout=self.timeout,
+                max_retries=0,
+            )
+        else:
+            self.async_client = None
 
     def __getstate__(self) -> dict:
         """Get state for pickling (excludes the OpenAI clients)."""
@@ -117,7 +123,7 @@ class OpenAIProvider(Provider):
             max_retries=0,
         )
 
-    async def complete(self, messages: list[dict[str, str]], **kwargs: Any) -> Completion:
+    async def complete(self, messages: list[dict[str, Any]], **kwargs: Any) -> Completion:
         """Generate completion using OpenAI API.
 
         Args:
@@ -132,13 +138,19 @@ class OpenAIProvider(Provider):
         if cached:
             return cached
 
+        # Validate content types for the model
+        self.validate_content_types(messages)
+
+        # Prepare multimodal messages if needed
+        formatted_messages = self._prepare_multimodal_messages(messages)
+
         # Validate and prepare parameters
         params = self._prepare_params(kwargs)
 
         try:
             # Make API call
             response = await self.async_client.chat.completions.create(
-                model=self.model, messages=messages, **params
+                model=self.model, messages=formatted_messages, **params
             )
 
             # Convert to our Completion type
@@ -244,18 +256,217 @@ class OpenAIProvider(Provider):
 
     def supports_vision(self) -> bool:
         """Check if current model supports vision."""
+        # GPT-4.1 family (2025 models) all support vision
+        if self.model.startswith("gpt-4.1"):
+            return True
+
+        # GPT-4o and GPT-4 vision models
         vision_models = [
             "gpt-4-vision-preview",
             "gpt-4-turbo",
-            "gpt-4o",  # Exact match only
-            "gpt-4o-2024",  # Specific dated versions
+            "gpt-4o",
+            "gpt-4o-mini",
         ]
-        # Exact match or specific vision model patterns
+
         return (
             self.model in vision_models
-            or self.model.startswith("gpt-4o-2024")
-            or (self.model == "gpt-4o")
+            or self.model.startswith("gpt-4o-")
+            or self.model.startswith("gpt-4-turbo")
+            or "vision" in self.model.lower()
         )
+
+    def validate_content_types(self, messages: list[dict[str, Any]]) -> None:
+        """Validate that the model supports the content types in messages.
+
+        Args:
+            messages: List of message dicts that may contain multimodal content
+
+        Raises:
+            ProviderError: If content type is not supported by the model
+        """
+        from ..core.signatures.types import Audio, Image
+
+        has_images = False
+        has_audio = False
+
+        # Check all messages for multimodal content
+        for message in messages:
+            content = message.get("content")
+            if isinstance(content, list):
+                for item in content:
+                    # Check direct Image/Audio objects
+                    if isinstance(item, Image):
+                        has_images = True
+                    elif isinstance(item, Audio):
+                        has_audio = True
+                    # Check dict format (already converted)
+                    elif isinstance(item, dict):
+                        if item.get("type") == "image_url":
+                            has_images = True
+                        elif item.get("type") == "input_audio":
+                            has_audio = True
+
+        # Validate vision support
+        if has_images and not self.supports_vision():
+            raise ProviderError(
+                f"Model {self.model} doesn't support vision/images. "
+                f"Use a vision-capable model like gpt-4o, gpt-4-turbo, or gpt-4-vision-preview."
+            )
+
+        # Validate audio support
+        if has_audio:
+            audio_models = ["gpt-4o-audio-preview", "gpt-4o-audio"]
+            model_lower = self.model.lower()
+
+            supports_audio = False
+            for am in audio_models:
+                if model_lower == am or model_lower.startswith(am):
+                    supports_audio = True
+                    break
+
+            if not supports_audio:
+                raise ProviderError(
+                    f"Model {self.model} doesn't support audio input. "
+                    f"Use an audio-capable model like gpt-4o-audio-preview."
+                )
+
+    def _prepare_multimodal_messages(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Convert messages with multimodal content to OpenAI format.
+
+        Handles:
+        - Image objects → image_url format
+        - Audio objects → input_audio format (for supported models)
+        - Mixed content arrays (text + images/audio)
+        - Size validation (20MB limit for base64)
+
+        Args:
+            messages: List of messages potentially containing multimodal content
+
+        Returns:
+            Messages formatted for OpenAI API
+
+        Raises:
+            ProviderError: If content exceeds size limits or unsupported types
+        """
+        from ..core.signatures.types import Audio, History, Image
+
+        formatted_messages = []
+
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+
+            # Handle string content (no conversion needed)
+            if isinstance(content, str):
+                formatted_messages.append({"role": role, "content": content})
+                continue
+
+            # Handle Image object
+            if isinstance(content, Image):
+                # Check size limit (20MB for base64)
+                base64_size = len(content.to_base64())
+                if base64_size > 20 * 1024 * 1024:  # 20MB
+                    raise ProviderError(
+                        f"Image size ({base64_size / 1024 / 1024:.1f}MB) exceeds OpenAI limit (20MB)"
+                    )
+
+                formatted_messages.append(
+                    {
+                        "role": role,
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": content.to_data_url(),
+                                    "detail": getattr(content, "detail", "auto"),
+                                },
+                            }
+                        ],
+                    }
+                )
+                continue
+
+            # Handle Audio object
+            if isinstance(content, Audio):
+                # Only certain models support audio
+                audio_models = ["gpt-4o-audio-preview", "gpt-4o-2024-10-01"]
+                if self.model not in audio_models and not self.model.startswith("gpt-4o-audio"):
+                    raise ProviderError(
+                        f"Model {self.model} doesn't support audio input. "
+                        f"Use one of: {', '.join(audio_models)}"
+                    )
+
+                formatted_messages.append(
+                    {
+                        "role": role,
+                        "content": [
+                            {
+                                "type": "input_audio",
+                                "input_audio": {
+                                    "data": content.to_base64(),
+                                    "format": content.format,
+                                },
+                            }
+                        ],
+                    }
+                )
+                continue
+
+            # Handle History object
+            if isinstance(content, History):
+                # Convert History to messages and extend our list
+                # History should not be content, it should be multiple messages
+                raise ProviderError(
+                    "History objects should be converted to messages before calling provider"
+                )
+
+            # Handle list of mixed content
+            if isinstance(content, list):
+                content_parts = []
+
+                for item in content:
+                    if isinstance(item, str):
+                        content_parts.append({"type": "text", "text": item})
+                    elif isinstance(item, Image):
+                        # Check size
+                        base64_size = len(item.to_base64())
+                        if base64_size > 20 * 1024 * 1024:
+                            raise ProviderError("Image size exceeds 20MB limit")
+
+                        content_parts.append(
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": item.to_data_url(),
+                                    "detail": getattr(item, "detail", "auto"),
+                                },
+                            }
+                        )
+                    elif isinstance(item, Audio):
+                        # Check model support
+                        if not self.model.startswith("gpt-4o-audio"):
+                            raise ProviderError(f"Model {self.model} doesn't support audio")
+
+                        content_parts.append(
+                            {
+                                "type": "input_audio",
+                                "input_audio": {"data": item.to_base64(), "format": item.format},
+                            }
+                        )
+                    elif isinstance(item, dict):
+                        # Already formatted content part
+                        content_parts.append(item)
+                    else:
+                        # Convert to string as fallback
+                        content_parts.append({"type": "text", "text": str(item)})
+
+                formatted_messages.append({"role": role, "content": content_parts})
+                continue
+
+            # Fallback: convert to string
+            formatted_messages.append({"role": role, "content": str(content)})
+
+        return formatted_messages
 
     def get_param_specs(self) -> dict[str, Any]:
         """Get OpenAI-specific parameter specifications.
@@ -352,7 +563,7 @@ class OpenAIProvider(Provider):
 
         return params
 
-    def _parse_completion(self, response: "ChatCompletion") -> Completion:
+    def _parse_completion(self, response: Any) -> Completion:
         """Parse OpenAI response into our Completion type.
 
         Args:

@@ -86,17 +86,51 @@ print(result.sentiment)   # "positive"
 print(result.confidence)  # 0.97
 ```
 
-### Structured Signatures
+### Complex Type Support (New!)
+```python
+# Work with lists, dictionaries, and optional types
+extractor = Predict("document: str -> entities: dict[str, list[str]], summary: Optional[str]")
+result = await extractor(document="Apple Inc. announced iPhone 15 in Cupertino.")
+print(result.entities)  # {"companies": ["Apple Inc."], "products": ["iPhone 15"], "locations": ["Cupertino"]}
+
+# Use Union types with pipe syntax
+processor = Predict("data: str | bytes -> processed: bool, format: str")
+```
+
+### Multimodal Capabilities (New!)
+```python
+from logillm.core.signatures.types import Image, Audio, Tool
+
+# Vision analysis
+vision = Predict("image: Image -> description: str, objects: list[str], confidence: float")
+result = await vision(image=Image.from_path("photo.jpg"))
+print(result.objects)  # ["person", "laptop", "coffee"]
+
+# Audio processing
+transcriber = Predict("audio: Audio -> transcript: str, language: str")
+result = await transcriber(audio=Audio.from_url("https://example.com/speech.mp3"))
+
+# Tool/Function calling
+tool_agent = Predict("query: str -> tool_calls: list[Tool], explanation: str")
+```
+
+### Structured Signatures with Field Validation (Enhanced!)
 ```python
 from logillm.core.signatures import Signature, InputField, OutputField
 
 class TextAnalysis(Signature):
+    # Required and optional fields with defaults
     text: str = InputField(description="Text to analyze")
+    max_length: int = InputField(default=100, description="Maximum response length")
+    
+    # Output fields with type hints
     category: str = OutputField(description="Category like support, sales, billing")
     priority: int = OutputField(description="Priority 1-5 where 5 is most urgent")
+    entities: list[str] = OutputField(description="Named entities found")
 
 analyzer = Predict(signature=TextAnalysis)
 result = await analyzer(text="My account is locked and I cannot access my files")
+# Automatically validates inputs and outputs against field specifications
 print(result.category)  # "Account Access"
 print(result.priority)  # 1
 ```

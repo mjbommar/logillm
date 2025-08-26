@@ -120,15 +120,24 @@ class ClassifyEmail(Signature):
 
 
 class ExtractEntities(Signature):
-    """Extract key entities and information from email content."""
+    """Extract key entities and information from email content with validation."""
 
-    email_content: str = InputField(desc="The full email content including subject and body")
+    email_content: str = InputField(
+        desc="The full email content including subject and body",
+        min_length=1,  # Ensure non-empty content
+        max_length=10000  # Reasonable email length limit
+    )
     email_type: EmailType = InputField(desc="The classified type of email")
 
     key_entities: List[ExtractedEntity] = OutputField(
-        desc="List of extracted entities with type, value, and confidence"
+        desc="List of extracted entities with type, value, and confidence",
+        min_items=0,  # Can be empty
+        max_items=50  # Reasonable limit for entities
     )
-    financial_amount: Optional[float] = OutputField(desc="Any monetary amounts found")
+    financial_amount: Optional[float] = OutputField(
+        desc="Any monetary amounts found",
+        ge=0.0  # Amount must be non-negative if present
+    )
     important_dates: List[str] = OutputField(desc="List of important dates found")
     contact_info: List[str] = OutputField(desc="Relevant contact information extracted")
 
@@ -404,7 +413,182 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-## Step 5: Advanced Features - Optimization and Persistence
+## Step 5: Enhanced Field Validation (New Features!)
+
+LogiLLM now provides advanced field validation capabilities. Let's create an enhanced version with comprehensive validation:
+
+```python
+# enhanced_signatures.py
+from logillm.core.signatures import Signature, InputField, OutputField
+from typing import List, Optional, Literal
+import re
+
+class EnhancedEmailExtractor(Signature):
+    """Extract email data with comprehensive validation constraints."""
+    
+    # Input validation
+    email_subject: str = InputField(
+        desc="Email subject line",
+        min_length=1,
+        max_length=200  # RFC 2822 recommends max 78 chars, but we're lenient
+    )
+    
+    email_body: str = InputField(
+        desc="Email body content",
+        min_length=1,
+        max_length=50000  # ~10 pages of text
+    )
+    
+    sender_email: str = InputField(
+        desc="Sender's email address",
+        # Could add pattern validation when using Pydantic
+        # pattern=r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    )
+    
+    # Output validation with constraints
+    urgency_level: Literal["low", "medium", "high", "critical"] = OutputField(
+        desc="Email urgency classification"
+    )
+    
+    confidence_score: float = OutputField(
+        desc="Classification confidence",
+        ge=0.0,  # Greater than or equal to 0
+        le=1.0   # Less than or equal to 1
+    )
+    
+    detected_language: str = OutputField(
+        desc="Primary language of the email",
+        default="en",  # Default to English
+        max_length=5  # ISO 639-1 codes are 2-3 chars
+    )
+    
+    phone_numbers: List[str] = OutputField(
+        desc="Extracted phone numbers",
+        max_items=10,  # Reasonable limit
+        default_factory=list  # Empty list if none found
+    )
+    
+    urls: List[str] = OutputField(
+        desc="Extracted URLs",
+        max_items=20,
+        default_factory=list
+    )
+    
+    # Optional fields with validation
+    meeting_time: Optional[str] = OutputField(
+        desc="Detected meeting time if present",
+        default=None
+    )
+    
+    estimated_response_time: Optional[int] = OutputField(
+        desc="Estimated minutes to respond",
+        default=None,
+        ge=0,  # Must be non-negative
+        le=10080  # Max one week in minutes
+    )
+
+class ValidatedEmailProcessor:
+    """Email processor with automatic validation."""
+    
+    def __init__(self):
+        from logillm.core.predict import Predict
+        self.extractor = Predict(signature=EnhancedEmailExtractor)
+    
+    async def process_with_validation(self, subject: str, body: str, sender: str):
+        """Process email with automatic input/output validation."""
+        
+        # Input validation happens automatically
+        try:
+            result = await self.extractor(
+                email_subject=subject,
+                email_body=body,
+                sender_email=sender
+            )
+            
+            # Output validation also automatic
+            print(f"Urgency: {result.urgency_level}")  # Guaranteed to be valid
+            print(f"Confidence: {result.confidence_score:.2%}")  # Always 0-1
+            print(f"Language: {result.detected_language}")
+            
+            if result.phone_numbers:
+                print(f"Found {len(result.phone_numbers)} phone numbers")
+            
+            if result.meeting_time:
+                print(f"Meeting detected: {result.meeting_time}")
+                
+            return result
+            
+        except ValueError as e:
+            print(f"Validation error: {e}")
+            # Handle invalid inputs or outputs
+            raise
+```
+
+### Using Complex Types for Richer Data
+
+```python
+from typing import Dict, List, Tuple
+from logillm.core.signatures.types import History
+
+class EmailThreadAnalyzer(Signature):
+    """Analyze entire email threads with context."""
+    
+    # Use History type for conversation threads
+    thread_history: History = InputField(
+        desc="Email thread as conversation history"
+    )
+    
+    # Complex output types
+    participants: Dict[str, List[str]] = OutputField(
+        desc="Map of participant emails to their roles"
+    )
+    
+    topic_evolution: List[Tuple[int, str]] = OutputField(
+        desc="How the topic changed over messages (index, topic)"
+    )
+    
+    sentiment_timeline: List[float] = OutputField(
+        desc="Sentiment score for each message in thread"
+    )
+    
+    action_owners: Dict[str, str] = OutputField(
+        desc="Map of action items to responsible persons"
+    )
+
+# Usage example
+async def analyze_thread():
+    from logillm.core.predict import Predict
+    from logillm.core.signatures.types import History
+    
+    analyzer = Predict(signature=EmailThreadAnalyzer)
+    
+    # Build thread history
+    thread = History(messages=[
+        {"role": "user", "content": "Can we schedule a meeting about Q4 planning?"},
+        {"role": "assistant", "content": "Yes, I have slots Tuesday or Thursday afternoon."},
+        {"role": "user", "content": "Thursday 3pm works. Please send calendar invite."}
+    ])
+    
+    result = await analyzer(thread_history=thread)
+    
+    # Rich structured output
+    print(f"Participants: {result.participants}")
+    print(f"Topic changes: {result.topic_evolution}")
+    print(f"Sentiment over time: {result.sentiment_timeline}")
+    print(f"Action assignments: {result.action_owners}")
+```
+
+### Validation Best Practices
+
+1. **Use constraints for data quality**: Set reasonable min/max values
+2. **Leverage Optional types**: Not all fields are always present
+3. **Set defaults**: Provide sensible defaults for optional fields
+4. **Use Literal types**: For fields with known values
+5. **Validate patterns**: Use regex patterns for emails, URLs, phones
+6. **Complex types**: Use Dict, List, Tuple for structured data
+7. **Multimodal types**: Use History for threads, Image for attachments
+
+## Step 6: Advanced Features - Optimization and Persistence
 
 ```python
 # optimization.py

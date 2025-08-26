@@ -739,6 +739,265 @@ Define **where** to run:
 - `create_provider("openai", model="gpt-4.1")`
 - All modules work with any provider
 
+## Step 9: Advanced Signature Features (New!)
+
+LogiLLM now supports advanced type systems and multimodal capabilities that go beyond basic signatures:
+
+### Complex Type Support
+
+```python
+#!/usr/bin/env python3
+import asyncio
+from typing import Optional
+import sys
+import os
+sys.path.insert(0, os.path.abspath('../..'))
+
+from logillm.core.predict import Predict
+from logillm.core.signatures import Signature, InputField, OutputField
+from logillm.providers import create_provider, register_provider
+
+class DataExtractor(Signature):
+    """Extract structured data with complex types."""
+    
+    document: str = InputField(desc="Document to analyze")
+    
+    # Complex output types
+    entities: dict[str, list[str]] = OutputField(
+        desc="Named entities by category"
+    )
+    relationships: list[tuple[str, str, str]] = OutputField(
+        desc="Entity relationships as (subject, predicate, object)"
+    )
+    metadata: Optional[dict] = OutputField(
+        desc="Optional document metadata"
+    )
+
+async def main():
+    provider = create_provider("openai", model="gpt-4.1")
+    register_provider(provider, set_default=True)
+    
+    extractor = Predict(signature=DataExtractor)
+    
+    document = """
+    Apple Inc., founded by Steve Jobs and Steve Wozniak in 1976,
+    is headquartered in Cupertino, California. The company's CEO
+    Tim Cook announced the iPhone 15 at their September event.
+    """
+    
+    result = await extractor(document=document)
+    
+    print("Entities:", result.entities)
+    print("Relationships:", result.relationships)
+    print("Metadata:", result.metadata)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Output:
+```
+Entities: {
+    "companies": ["Apple Inc."],
+    "people": ["Steve Jobs", "Steve Wozniak", "Tim Cook"],
+    "locations": ["Cupertino", "California"],
+    "products": ["iPhone 15"]
+}
+Relationships: [
+    ("Steve Jobs", "founded", "Apple Inc."),
+    ("Steve Wozniak", "founded", "Apple Inc."),
+    ("Tim Cook", "is CEO of", "Apple Inc."),
+    ("Apple Inc.", "headquartered in", "Cupertino")
+]
+Metadata: {"year_founded": 1976, "event": "September event"}
+```
+
+### Multimodal Capabilities
+
+```python
+#!/usr/bin/env python3
+import asyncio
+import sys
+import os
+sys.path.insert(0, os.path.abspath('../..'))
+
+from logillm.core.predict import Predict
+from logillm.core.signatures import Signature, InputField, OutputField
+from logillm.core.signatures.types import Image, Audio, Tool, History
+from logillm.providers import create_provider, register_provider
+
+class VisionAnalyzer(Signature):
+    """Analyze images for content and context."""
+    
+    image: Image = InputField(desc="Image to analyze")
+    
+    description: str = OutputField(desc="Detailed description")
+    objects: list[str] = OutputField(desc="Objects detected")
+    scene_type: str = OutputField(desc="Type of scene")
+    colors: list[str] = OutputField(desc="Dominant colors")
+
+class ConversationAgent(Signature):
+    """Continue a conversation with context."""
+    
+    history: History = InputField(desc="Previous conversation")
+    query: str = InputField(desc="Current user query")
+    
+    response: str = OutputField(desc="Assistant response")
+    tool_calls: list[Tool] = OutputField(desc="Functions to execute")
+
+async def vision_example():
+    provider = create_provider("openai", model="gpt-4o")  # Vision model
+    register_provider(provider, set_default=True)
+    
+    analyzer = Predict(signature=VisionAnalyzer)
+    
+    # Analyze an image
+    image = Image.from_path("example_photo.jpg")
+    # Or from URL: Image.from_url("https://example.com/image.jpg")
+    # Or from base64: Image.from_base64(b64_string)
+    
+    result = await analyzer(image=image)
+    
+    print(f"Description: {result.description}")
+    print(f"Objects: {result.objects}")
+    print(f"Scene: {result.scene_type}")
+    print(f"Colors: {result.colors}")
+
+async def conversation_example():
+    provider = create_provider("openai", model="gpt-4.1")
+    register_provider(provider, set_default=True)
+    
+    agent = Predict(signature=ConversationAgent)
+    
+    # Build conversation history
+    history = History(messages=[
+        {"role": "user", "content": "What's the weather like?"},
+        {"role": "assistant", "content": "I'd need to check current weather data. Where are you located?"},
+        {"role": "user", "content": "San Francisco"}
+    ])
+    
+    # Continue the conversation
+    result = await agent(
+        history=history,
+        query="Should I bring an umbrella?"
+    )
+    
+    print(f"Response: {result.response}")
+    if result.tool_calls:
+        print(f"Tools to call: {[tool.name for tool in result.tool_calls]}")
+
+if __name__ == "__main__":
+    # Run vision example if you have an image
+    # asyncio.run(vision_example())
+    
+    # Run conversation example
+    asyncio.run(conversation_example())
+```
+
+### Field Validation with Constraints
+
+```python
+#!/usr/bin/env python3
+import asyncio
+import sys
+import os
+sys.path.insert(0, os.path.abspath('../..'))
+
+from logillm.core.predict import Predict
+from logillm.core.signatures import Signature, InputField, OutputField
+from logillm.providers import create_provider, register_provider
+
+class ValidatedForm(Signature):
+    """Form with validation constraints."""
+    
+    # Required field with no default
+    email: str = InputField(desc="User email address")
+    
+    # Optional field with default
+    age: int = InputField(
+        default=None,
+        desc="User age (optional)"
+    )
+    
+    # Field with validation constraints (when using Pydantic)
+    score: float = OutputField(
+        desc="Score between 0 and 1",
+        ge=0.0,  # Greater than or equal to 0
+        le=1.0   # Less than or equal to 1
+    )
+    
+    category: str = OutputField(
+        desc="Must be one of: low, medium, high"
+    )
+
+async def main():
+    provider = create_provider("openai", model="gpt-4.1")
+    register_provider(provider, set_default=True)
+    
+    processor = Predict(signature=ValidatedForm)
+    
+    # Validation happens automatically
+    result = await processor(
+        email="user@example.com"
+        # age is optional, not provided
+    )
+    
+    print(f"Score: {result.score}")  # Guaranteed 0 <= score <= 1
+    print(f"Category: {result.category}")  # Will be low/medium/high
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### Union Types and Advanced Patterns
+
+```python
+#!/usr/bin/env python3
+import asyncio
+from typing import Union
+import sys
+import os
+sys.path.insert(0, os.path.abspath('../..'))
+
+from logillm.core.predict import Predict
+from logillm.providers import create_provider, register_provider
+
+async def main():
+    provider = create_provider("openai", model="gpt-4.1")
+    register_provider(provider, set_default=True)
+    
+    # Union types with pipe syntax (Python 3.10+)
+    processor = Predict("data: str | bytes -> processed: bool, format: str")
+    
+    # Works with string
+    result1 = await processor(data="Hello world")
+    print(f"String processed: {result1.processed}, format: {result1.format}")
+    
+    # Also works with bytes
+    result2 = await processor(data=b"Binary data")
+    print(f"Bytes processed: {result2.processed}, format: {result2.format}")
+    
+    # Optional types
+    analyzer = Predict("text: str -> result: Optional[dict], error: Optional[str]")
+    
+    result3 = await analyzer(text="Analyze this")
+    if result3.result:
+        print(f"Analysis: {result3.result}")
+    if result3.error:
+        print(f"Error: {result3.error}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+**What's new in advanced features?**
+- **Complex types**: `dict[str, list[str]]`, `list[tuple[str, str, str]]`
+- **Optional types**: `Optional[dict]`, `str | None` 
+- **Union types**: `str | bytes`, `Union[int, float]`
+- **Multimodal types**: `Image`, `Audio`, `Tool`, `History`
+- **Field validation**: Required/optional fields, constraints
+- **Type safety**: Automatic validation and coercion
+
 ## Try It Yourself
 
 1. **Change the outputs**: Add a `recommendations` field to the NewsAnalysis signature
