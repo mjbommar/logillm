@@ -290,7 +290,7 @@ class TestOpenAIOptimization:
 
         # Create optimizer - test only JSON format for quick test
         from logillm.optimizers.format_optimizer import FormatOptimizerConfig, PromptFormat
-        
+
         config = FormatOptimizerConfig(
             formats_to_test=[PromptFormat.JSON],  # Only test JSON format
             min_samples_per_format=1,  # Minimal samples for quick test

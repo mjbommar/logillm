@@ -17,8 +17,7 @@ from logillm.providers.anthropic import AnthropicProvider
 
 # Skip all tests if no API key
 pytestmark = pytest.mark.skipif(
-    not os.getenv("ANTHROPIC_API_KEY"),
-    reason="ANTHROPIC_API_KEY not set"
+    not os.getenv("ANTHROPIC_API_KEY"), reason="ANTHROPIC_API_KEY not set"
 )
 
 
@@ -51,10 +50,7 @@ async def test_claude_image_description():
     provider = AnthropicProvider(model="claude-4-opus-20250514")
 
     # Create predictor
-    predictor = Predict(
-        signature=ImageDescriptionSignature,
-        provider=provider
-    )
+    predictor = Predict(signature=ImageDescriptionSignature, provider=provider)
 
     # Load image
     image = Image.from_path(str(image_path))
@@ -85,10 +81,10 @@ async def test_claude_direct_api_call():
 
     # Create messages with multimodal content
     messages = [
-        {"role": "user", "content": [
-            "What document is shown in this image? Please be specific.",
-            image
-        ]}
+        {
+            "role": "user",
+            "content": ["What document is shown in this image? Please be specific.", image],
+        }
     ]
 
     # Make API call
@@ -115,11 +111,14 @@ async def test_claude_mixed_text_and_image():
 
     # Mix text before and after image
     messages = [
-        {"role": "user", "content": [
-            "I need help understanding this document.",
-            image,
-            "What organization submitted this form and why?"
-        ]}
+        {
+            "role": "user",
+            "content": [
+                "I need help understanding this document.",
+                image,
+                "What organization submitted this form and why?",
+            ],
+        }
     ]
 
     completion = await provider.complete(messages)
@@ -163,13 +162,16 @@ async def test_claude_multiple_images():
     image2 = Image.from_path(str(image_path))
 
     messages = [
-        {"role": "user", "content": [
-            "Compare these two images:",
-            image1,
-            "and",
-            image2,
-            "Are they the same document?"
-        ]}
+        {
+            "role": "user",
+            "content": [
+                "Compare these two images:",
+                image1,
+                "and",
+                image2,
+                "Are they the same document?",
+            ],
+        }
     ]
 
     completion = await provider.complete(messages)
@@ -192,18 +194,22 @@ async def test_claude_with_system_prompt():
     image = Image.from_path(str(image_path))
 
     messages = [
-        {"role": "system", "content": "You are a tax document expert. Be very precise and technical."},
-        {"role": "user", "content": [
-            "Analyze this tax form:",
-            image
-        ]}
+        {
+            "role": "system",
+            "content": "You are a tax document expert. Be very precise and technical.",
+        },
+        {"role": "user", "content": ["Analyze this tax form:", image]},
     ]
 
     completion = await provider.complete(messages)
 
     assert completion.text
     # Should use technical tax terminology
-    assert "501(c)(3)" in completion.text or "tax" in completion.text.lower() or "IRS" in completion.text
+    assert (
+        "501(c)(3)" in completion.text
+        or "tax" in completion.text.lower()
+        or "IRS" in completion.text
+    )
 
     print(f"System prompt response: {completion.text}")
 

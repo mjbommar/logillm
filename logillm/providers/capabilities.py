@@ -58,7 +58,6 @@ MODEL_CAPABILITIES: dict[str, ModelCapabilities] = {
         max_tokens=128000,
         context_window=128000,
     ),
-
     # OpenAI GPT-4o family (multimodal)
     "gpt-4o": ModelCapabilities(
         vision=True,
@@ -84,7 +83,6 @@ MODEL_CAPABILITIES: dict[str, ModelCapabilities] = {
         max_tokens=16384,
         context_window=128000,
     ),
-
     # OpenAI GPT-4 legacy models
     "gpt-4": ModelCapabilities(
         vision=False,
@@ -110,7 +108,6 @@ MODEL_CAPABILITIES: dict[str, ModelCapabilities] = {
         max_tokens=4096,
         context_window=128000,
     ),
-
     # OpenAI GPT-3.5 models (legacy, not recommended)
     "gpt-3.5-turbo": ModelCapabilities(
         vision=False,
@@ -120,7 +117,6 @@ MODEL_CAPABILITIES: dict[str, ModelCapabilities] = {
         max_tokens=4096,
         context_window=16385,
     ),
-
     # Anthropic Claude 4 family (May 2025 release)
     "claude-4-opus-20250514": ModelCapabilities(
         vision=True,
@@ -146,7 +142,6 @@ MODEL_CAPABILITIES: dict[str, ModelCapabilities] = {
         max_tokens=4096,
         context_window=200000,
     ),
-
     # Anthropic Claude 3 family (legacy)
     "claude-3-opus-20240229": ModelCapabilities(
         vision=True,
@@ -172,7 +167,6 @@ MODEL_CAPABILITIES: dict[str, ModelCapabilities] = {
         max_tokens=4096,
         context_window=200000,
     ),
-
     # Google Gemini models
     "gemini-2.5-flash": ModelCapabilities(
         vision=True,

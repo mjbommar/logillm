@@ -11,12 +11,12 @@ class MockProvider(Provider):
     """Mock provider for testing."""
 
     def __init__(
-        self, 
-        response_text: str = "Mock response", 
+        self,
+        response_text: str = "Mock response",
         responses: list[str] | None = None,
         latency: float = 0.0,
         error_rate: float = 0.0,
-        **kwargs
+        **kwargs,
     ):
         """Initialize mock provider.
 
@@ -24,7 +24,7 @@ class MockProvider(Provider):
             response_text: Default response text
             responses: List of responses to cycle through
             latency: Simulated latency in seconds
-            error_rate: Probability of error (0-1) 
+            error_rate: Probability of error (0-1)
             **kwargs: Additional arguments for Provider
         """
         # Extract responses before passing to parent
@@ -37,7 +37,8 @@ class MockProvider(Provider):
 
         # Remove custom args before passing to parent
         filtered_kwargs = {
-            k: v for k, v in kwargs.items() 
+            k: v
+            for k, v in kwargs.items()
             if k not in ["responses", "response_text", "latency", "error_rate"]
         }
 
@@ -77,6 +78,7 @@ class MockProvider(Provider):
         # Simulate errors
         if self.error_rate > 0:
             import random
+
             if random.random() < self.error_rate:
                 raise Exception(f"Mock error (call #{self.call_count})")
 

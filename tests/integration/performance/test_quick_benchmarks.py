@@ -292,7 +292,7 @@ class TestQuickPerformanceBenchmarks:
         else:
             score = 1.0 if isinstance(items, list) and len(items) > 0 else 0.0
 
-        print(f"\nFormat Optimization Results (Quick Test):")
+        print("\nFormat Optimization Results (Quick Test):")
         print(f"  Markdown format score: {score:.2f}")
 
         # Assert we found a working format

@@ -158,36 +158,36 @@ class TestHybridOptimizer:
             {"inputs": {"x": "1+1"}, "outputs": {"y": "2"}},
             {"inputs": {"x": "2+2"}, "outputs": {"y": "4"}},
         ]
-        
+
         def simple_metric(pred, expected):
             return 1.0 if pred.get("y") == expected.get("y") else 0.0
-        
+
         module = Predict("x -> y")
-        
+
         # Minimal hybrid optimization with explicit config
         from logillm.optimizers import HybridOptimizer
         from logillm.optimizers.optimizer_config import HybridOptimizerConfig
-        
+
         config = HybridOptimizerConfig(
             num_iterations=1,
             n_trials=2,  # MINIMAL trials instead of default 50!
             n_warmup_joint=1,  # Minimal warmup
             demo_subset_size=2,  # Very small subset
         )
-        
+
         optimizer = HybridOptimizer(
             metric=simple_metric,
             strategy="joint",  # Faster than alternating
             config=config,
         )
-        
+
         result = await optimizer.optimize(module, train_data)
         assert result.optimized_module is not None
         assert result.best_score >= 0  # Just check it ran
-        
+
     @pytest.mark.asyncio
     @pytest.mark.integration
-    @pytest.mark.timeout(60)  # 1 minute timeout  
+    @pytest.mark.timeout(60)  # 1 minute timeout
     @pytest.mark.skip(reason="Still too slow for regular runs")
     async def test_hybrid_on_factual_task(self):
         """Test hybrid on factual task that needs low temperature."""
@@ -212,16 +212,16 @@ class TestHybridOptimizer:
 
         # Test with hybrid - should discover low temperature is better
         from logillm.optimizers.optimizer_config import HybridOptimizerConfig
-        
+
         config = HybridOptimizerConfig(
             num_iterations=1,
             n_trials=2,  # MINIMAL trials!
             n_warmup_joint=1,
             demo_subset_size=2,
         )
-        
+
         hybrid_optimizer = HybridOptimizer(
-            metric=math_metric, 
+            metric=math_metric,
             strategy="alternating",
             config=config,
         )

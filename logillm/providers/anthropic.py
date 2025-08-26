@@ -343,8 +343,8 @@ class AnthropicProvider(Provider):
                     "source": {
                         "type": "base64",
                         "media_type": f"image/{content.format}",
-                        "data": content.to_base64()
-                    }
+                        "data": content.to_base64(),
+                    },
                 }
             ]
 
@@ -367,32 +367,26 @@ class AnthropicProvider(Provider):
 
             for item in content:
                 if isinstance(item, str):
-                    content_parts.append({
-                        "type": "text",
-                        "text": item
-                    })
+                    content_parts.append({"type": "text", "text": item})
                 elif isinstance(item, Image):
-                    content_parts.append({
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": f"image/{item.format}",
-                            "data": item.to_base64()
+                    content_parts.append(
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": f"image/{item.format}",
+                                "data": item.to_base64(),
+                            },
                         }
-                    })
-                elif isinstance(item, Audio):
-                    raise NotImplementedError(
-                        "Anthropic doesn't support audio input"
                     )
+                elif isinstance(item, Audio):
+                    raise NotImplementedError("Anthropic doesn't support audio input")
                 elif isinstance(item, dict):
                     # Already formatted content block
                     content_parts.append(item)
                 else:
                     # Convert to text as fallback
-                    content_parts.append({
-                        "type": "text",
-                        "text": str(item)
-                    })
+                    content_parts.append({"type": "text", "text": str(item)})
 
             return content_parts
 

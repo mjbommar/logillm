@@ -1,6 +1,5 @@
 """Unit tests for model capabilities registry."""
 
-import pytest
 
 from logillm.providers.capabilities import (
     ModelCapabilities,
@@ -23,14 +22,14 @@ def test_model_capabilities_dataclass():
         max_tokens=4096,
         context_window=128000,
     )
-    
+
     assert caps.vision is True
     assert caps.audio is False
     assert caps.function_calling is True
     assert caps.streaming is True
     assert caps.max_tokens == 4096
     assert caps.context_window == 128000
-    
+
     # Test to_dict
     d = caps.to_dict()
     assert d["vision"] is True

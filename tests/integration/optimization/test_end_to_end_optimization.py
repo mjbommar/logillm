@@ -193,14 +193,14 @@ class TestHybridOptimizationE2E:
 
         # Test hybrid optimization
         from logillm.optimizers.optimizer_config import HybridOptimizerConfig
-        
+
         config = HybridOptimizerConfig(
             num_iterations=1,
             n_trials=2,  # Minimal trials for testing
             n_warmup_joint=1,
             demo_subset_size=2,
         )
-        
+
         hybrid_optimizer = HybridOptimizer(
             metric=accuracy_metric,
             strategy="alternating",
@@ -254,7 +254,7 @@ class TestFormatOptimizationE2E:
 
         # Create format optimizer - test only one format for speed
         from logillm.optimizers.format_optimizer import FormatOptimizerConfig, PromptFormat
-        
+
         config = FormatOptimizerConfig(
             formats_to_test=[PromptFormat.JSON],  # Only test JSON for quick tests
             min_samples_per_format=1,
@@ -336,7 +336,7 @@ class TestFullOptimizationWorkflow:
         # Step 2: Format optimization
         # Use minimal format testing for speed
         from logillm.optimizers.format_optimizer import FormatOptimizerConfig, PromptFormat
-        
+
         config = FormatOptimizerConfig(
             formats_to_test=[PromptFormat.MARKDOWN],  # Only test one format
             min_samples_per_format=1,

@@ -50,15 +50,15 @@ class Signature(SignatureBase, metaclass=SignatureMeta):  # type: ignore[misc]
 
                     # Get the expected type for the field
                     expected_type = (
-                        getattr(field, "annotation", str)
-                        if hasattr(field, "annotation")
-                        else str
+                        getattr(field, "annotation", str) if hasattr(field, "annotation") else str
                     )
 
                     # Validate Image fields
                     if expected_type is Image or str(expected_type).endswith("Image"):
                         if not isinstance(value, Image):
-                            raise TypeError(f"Field '{name}' expects Image type, got {type(value).__name__}")
+                            raise TypeError(
+                                f"Field '{name}' expects Image type, got {type(value).__name__}"
+                            )
                         if not value.data:
                             raise ValueError(f"Image field '{name}' has no data")
                         if not value.format:
@@ -67,7 +67,9 @@ class Signature(SignatureBase, metaclass=SignatureMeta):  # type: ignore[misc]
                     # Validate Audio fields
                     elif expected_type is Audio or str(expected_type).endswith("Audio"):
                         if not isinstance(value, Audio):
-                            raise TypeError(f"Field '{name}' expects Audio type, got {type(value).__name__}")
+                            raise TypeError(
+                                f"Field '{name}' expects Audio type, got {type(value).__name__}"
+                            )
                         if not value.data:
                             raise ValueError(f"Audio field '{name}' has no data")
                         if not value.format:
@@ -75,7 +77,9 @@ class Signature(SignatureBase, metaclass=SignatureMeta):  # type: ignore[misc]
                         # Validate audio format
                         valid_formats = ["mp3", "wav", "flac", "ogg", "m4a", "webm"]
                         if value.format not in valid_formats:
-                            raise ValueError(f"Audio field '{name}' has invalid format '{value.format}'. Valid formats: {valid_formats}")
+                            raise ValueError(
+                                f"Audio field '{name}' has invalid format '{value.format}'. Valid formats: {valid_formats}"
+                            )
 
                     # Regular validation for other types
                     elif isinstance(field, FieldSpec):

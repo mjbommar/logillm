@@ -264,10 +264,7 @@ class History:
             if isinstance(msg, dict):
                 # Ensure it has role and content
                 if "role" in msg and "content" in msg:
-                    formatted.append({
-                        "role": msg["role"],
-                        "content": msg["content"]
-                    })
+                    formatted.append({"role": msg["role"], "content": msg["content"]})
                 else:
                     # Try to infer format
                     role = msg.get("role", "user")
@@ -352,7 +349,9 @@ def parse_type_expression(expr: str, custom_types: dict[str, type] | None = None
         # Fall back to string type if parsing fails
         import warnings
 
-        warnings.warn(f"Could not parse type expression '{expr}': {e}. Using str as fallback.", stacklevel=2)
+        warnings.warn(
+            f"Could not parse type expression '{expr}': {e}. Using str as fallback.", stacklevel=2
+        )
         return str
 
 

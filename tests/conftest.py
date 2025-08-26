@@ -3,9 +3,9 @@
 Provides shared configuration and fixtures for both unit and integration tests.
 """
 
+import logging
 import os
 import sys
-import logging
 from pathlib import Path
 
 import pytest
@@ -16,8 +16,7 @@ sys.path.insert(0, str(project_root))
 
 # Configure logging for tests
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
 # Test configuration based on environment
@@ -62,7 +61,7 @@ def pytest_collection_modifyitems(config, items):
     """Modify test collection to add markers based on test location and configuration."""
     skip_slow = pytest.mark.skip(reason=f"Skipping slow tests in {TEST_ENV} mode")
     skip_flaky = pytest.mark.skip(reason=f"Skipping flaky tests in {TEST_ENV} mode")
-    
+
     for item in items:
         # Auto-mark tests based on their directory
         if "/unit/" in str(item.fspath):
@@ -74,11 +73,11 @@ def pytest_collection_modifyitems(config, items):
         if "integration" in [m.name for m in item.iter_markers()]:
             if not any(m.name == "timeout" for m in item.iter_markers()):
                 item.add_marker(pytest.mark.timeout(CURRENT_CONFIG["timeout"]))
-        
+
         # Skip tests based on configuration
         if CURRENT_CONFIG["skip_slow"] and "slow" in [m.name for m in item.iter_markers()]:
             item.add_marker(skip_slow)
-        
+
         if CURRENT_CONFIG["skip_flaky"] and "flaky" in [m.name for m in item.iter_markers()]:
             item.add_marker(skip_flaky)
 

@@ -10,17 +10,14 @@ from pathlib import Path
 
 import pytest
 
+from logillm.core.predict import Predict
 from logillm.core.signatures import InputField, OutputField, Signature
 from logillm.core.signatures.types import Image
-from logillm.core.predict import Predict
 from logillm.providers.base import ProviderError
 from logillm.providers.openai import OpenAIProvider
 
 # Skip all tests if no API key
-pytestmark = pytest.mark.skipif(
-    not os.getenv("OPENAI_API_KEY"),
-    reason="OPENAI_API_KEY not set"
-)
+pytestmark = pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
 
 
 class ImageCaptionSignature(Signature):
@@ -51,10 +48,7 @@ async def test_image_caption_with_gpt41():
     provider = OpenAIProvider(model="gpt-4.1")
 
     # Create predictor
-    predictor = Predict(
-        signature=ImageCaptionSignature,
-        provider=provider
-    )
+    predictor = Predict(signature=ImageCaptionSignature, provider=provider)
 
     # Load image
     image = Image.from_path(str(image_path))
@@ -82,17 +76,13 @@ async def test_image_question_answering():
     provider = OpenAIProvider(model="gpt-4.1")
 
     # Create predictor
-    predictor = Predict(
-        signature=ImageAnalysisSignature,
-        provider=provider
-    )
+    predictor = Predict(signature=ImageAnalysisSignature, provider=provider)
 
     # Load image and ask question
     image = Image.from_path(str(image_path))
 
     result = await predictor.forward(
-        question="What type of document is shown in this image?",
-        image=image
+        question="What type of document is shown in this image?", image=image
     )
 
     # Check results
@@ -142,10 +132,7 @@ async def test_direct_api_call_with_image():
     # Create messages with multimodal content
     messages = [
         {"role": "system", "content": "You are a helpful assistant that describes images."},
-        {"role": "user", "content": [
-            "Please describe this image in one sentence:",
-            image
-        ]}
+        {"role": "user", "content": ["Please describe this image in one sentence:", image]},
     ]
 
     # Make API call
@@ -174,15 +161,17 @@ async def test_multiple_images():
     image2 = Image.from_path(str(image_path))
 
     # Create message with multiple images
-    messages = [{
-        "role": "user",
-        "content": [
-            "Are these two images the same or different?",
-            image1,
-            image2,
-            "Please answer with just 'same' or 'different'."
-        ]
-    }]
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                "Are these two images the same or different?",
+                image1,
+                image2,
+                "Please answer with just 'same' or 'different'.",
+            ],
+        }
+    ]
 
     completion = await provider.complete(messages)
 
@@ -220,14 +209,16 @@ async def test_mixed_text_and_image():
     image = Image.from_path(str(image_path))
 
     # Mix text and image
-    messages = [{
-        "role": "user",
-        "content": [
-            "I have an important document here.",
-            image,
-            "Can you tell me what type of document this is and what organization it's from?"
-        ]
-    }]
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                "I have an important document here.",
+                image,
+                "Can you tell me what type of document this is and what organization it's from?",
+            ],
+        }
+    ]
 
     completion = await provider.complete(messages)
 

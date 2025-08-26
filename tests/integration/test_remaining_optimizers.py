@@ -229,7 +229,7 @@ async def test_format_optimizer():
         print("Initializing FormatOptimizer...")
 
         from logillm.optimizers.format_optimizer import FormatOptimizerConfig, PromptFormat
-        
+
         config = FormatOptimizerConfig(
             formats_to_test=[PromptFormat.JSON],  # Only test one format for speed
             min_samples_per_format=1,

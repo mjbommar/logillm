@@ -484,7 +484,9 @@ class TestRefineIntegration:
         assert result.success, f"Refine failed: {result.error}"
 
         story = result.outputs.get("story", "")
-        assert len(story) > 30, f"Expected substantial story, got {len(story)} characters: {story[:100]}"
+        assert len(story) > 30, (
+            f"Expected substantial story, got {len(story)} characters: {story[:100]}"
+        )
 
         # Check if refinement improved the story
         refinement_attempts = result.metadata.get("refinement_attempts", 0)

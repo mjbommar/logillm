@@ -44,9 +44,9 @@ class TestMIPROv2Integration:
         config = MIPROv2Config(
             mode="light",
             num_candidates=1,  # Reduced from 3
-            num_trials=2,      # Reduced from 3
+            num_trials=2,  # Reduced from 3
             max_bootstrapped_demos=1,  # Reduced from 2
-            max_labeled_demos=1,       # Reduced from 2
+            max_labeled_demos=1,  # Reduced from 2
         )
 
         optimizer = MIPROv2Optimizer(metric=sentiment_metric, config=config)

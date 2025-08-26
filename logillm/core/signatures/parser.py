@@ -233,7 +233,9 @@ def _parse_type_expression(expr: str, custom_types: dict[str, type] | None = Non
         # Fall back to string type if parsing fails
         import warnings
 
-        warnings.warn(f"Could not parse type expression '{expr}'. Using str as fallback.", stacklevel=2)
+        warnings.warn(
+            f"Could not parse type expression '{expr}'. Using str as fallback.", stacklevel=2
+        )
         return str
 
 
