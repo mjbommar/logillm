@@ -95,7 +95,7 @@ class TestCallbackMixin:
 
         # When instance enabled but manager is None
         obj._callback_enabled = True
-        with patch.object(obj, '_get_callback_manager', return_value=None):
+        with patch.object(obj, "_get_callback_manager", return_value=None):
             assert obj._check_callbacks_enabled() is False
 
     def test_set_callback_enabled(self):
@@ -150,7 +150,7 @@ class TestCallbackMixin:
         obj._emit_sync = MagicMock()
 
         # Mock to simulate no running loop
-        with patch('asyncio.get_event_loop', side_effect=RuntimeError("No event loop")):
+        with patch("asyncio.get_event_loop", side_effect=RuntimeError("No event loop")):
             obj._emit_async_safe(event)
             obj._emit_sync.assert_called_once_with(event)
 
@@ -165,6 +165,7 @@ class TestCallbackMixin:
 
         # Create a mock context
         from logillm.core.callbacks import CallbackContext
+
         context = CallbackContext(call_id="test-123")
 
         # Initially no context
@@ -196,11 +197,11 @@ class TestModuleIntegration:
         module = BaseModule()
 
         # Check that mixin attributes are present
-        assert hasattr(module, '_callback_context')
-        assert hasattr(module, '_callback_enabled')
-        assert hasattr(module, '_callback_manager')
+        assert hasattr(module, "_callback_context")
+        assert hasattr(module, "_callback_enabled")
+        assert hasattr(module, "_callback_manager")
 
         # Check that mixin methods are available
-        assert hasattr(module, '_emit_async')
-        assert hasattr(module, '_emit_sync')
-        assert hasattr(module, '_create_context')
+        assert hasattr(module, "_emit_async")
+        assert hasattr(module, "_emit_sync")
+        assert hasattr(module, "_create_context")

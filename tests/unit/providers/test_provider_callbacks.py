@@ -1,6 +1,5 @@
 """Tests for provider callback functionality."""
 
-
 import pytest
 
 from logillm.core.callbacks import (
@@ -129,6 +128,7 @@ class TestProviderCallbacks:
         class TestHandler(AbstractCallback):
             async def on_provider_request(self, event: ProviderRequestEvent):
                 events.append(event)
+
             async def on_provider_response(self, event: ProviderResponseEvent):
                 events.append(event)
 
@@ -152,6 +152,7 @@ class TestProviderCallbacks:
         class TestHandler(AbstractCallback):
             async def on_provider_request(self, event: ProviderRequestEvent):
                 request_contexts.append(event.context)
+
             async def on_provider_response(self, event: ProviderResponseEvent):
                 response_contexts.append(event.context)
 
@@ -200,6 +201,7 @@ class TestProviderCallbacks:
         class TestHandler(AbstractCallback):
             async def on_provider_request(self, event: ProviderRequestEvent):
                 events.append(("request", event))
+
             async def on_provider_response(self, event: ProviderResponseEvent):
                 events.append(("response", event))
 
@@ -301,6 +303,7 @@ class TestProviderCallbacks:
         class TestHandler(AbstractCallback):
             async def on_provider_request(self, event: ProviderRequestEvent):
                 pass
+
             async def on_provider_response(self, event: ProviderResponseEvent):
                 pass
 

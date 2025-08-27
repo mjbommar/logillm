@@ -234,13 +234,13 @@ class ChatAdapter(BaseAdapter):
                 # Type conversion based on field type
                 field_info = signature.output_fields[field_name]
                 field_type = None
-                
+
                 # Get the type annotation
                 if hasattr(field_info, "annotation"):
                     field_type = field_info.annotation
                 elif hasattr(field_info, "python_type"):
                     field_type = field_info.python_type
-                
+
                 if field_type:
                     # Check if it's a list type
                     if hasattr(field_type, "__origin__") and field_type.__origin__ is list:
@@ -376,7 +376,7 @@ class ChatAdapter(BaseAdapter):
             return value
 
         value = value.strip()
-        
+
         # Handle empty or None-like strings
         if not value or value.lower() in ["none", "n/a", "[]"]:
             return []
@@ -385,6 +385,7 @@ class ChatAdapter(BaseAdapter):
         if value.startswith("[") and value.endswith("]"):
             try:
                 import json
+
                 result = json.loads(value)
                 if isinstance(result, list):
                     return result
@@ -393,6 +394,7 @@ class ChatAdapter(BaseAdapter):
 
         # Try to parse as bullet list (- item or * item or • item or number. item)
         import re
+
         bullet_pattern = r"^\s*(?:[-*•]|\d+\.)\s+(.+)$"
         lines = value.split("\n")
         if any(re.match(bullet_pattern, line) for line in lines if line.strip()):
@@ -435,10 +437,10 @@ class ChatAdapter(BaseAdapter):
             else:
                 # Just "and" separator
                 items = [item.strip().strip("\"'") for item in value.split(" and ")]
-            
+
             # Filter empty items
             items = [item for item in items if item]
             return items if items else []
-        
+
         # Single item - return as single-item list
         return [value] if value else []

@@ -13,7 +13,7 @@ from logillm.providers.mock import MockProvider
 # Test implementation of Module for testing
 class _TestModule(Module):
     """Concrete Module for testing.
-    
+
     Named with underscore prefix to prevent pytest from collecting it as a test class.
     """
 

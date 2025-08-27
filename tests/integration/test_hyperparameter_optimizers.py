@@ -23,9 +23,7 @@ class TestOptimizerHyperparameterHandling:
 
         # Create optimizer
         metric = MagicMock()
-        ReflectiveEvolutionOptimizer(
-            metric=metric, include_hyperparameters=True, n_iterations=1
-        )
+        ReflectiveEvolutionOptimizer(metric=metric, include_hyperparameters=True, n_iterations=1)
 
         # Verify module config is preserved and accessible
         assert get_hyperparameter(module, "temperature") == 0.8

@@ -47,9 +47,7 @@ class TestJSONLCallback:
         try:
             # Register JSONL callback
             callback = JSONLCallback(
-                tmp_path,
-                include_module_events=True,
-                include_provider_events=False
+                tmp_path, include_module_events=True, include_provider_events=False
             )
             manager = CallbackManager()
             manager.register(callback)
@@ -96,9 +94,7 @@ class TestJSONLCallback:
         try:
             # Register JSONL callback with provider events
             callback = JSONLCallback(
-                tmp_path,
-                include_module_events=False,
-                include_provider_events=True
+                tmp_path, include_module_events=False, include_provider_events=True
             )
             manager = CallbackManager()
             manager.register(callback)
@@ -236,12 +232,11 @@ class TestJSONLCallback:
             module = MockModule()
 
             # Emit start event
-            await callback.on_optimization_start(OptimizationStartEvent(
-                context=context,
-                optimizer=optimizer,
-                module=module,
-                dataset=[{"input": "test"}]
-            ))
+            await callback.on_optimization_start(
+                OptimizationStartEvent(
+                    context=context, optimizer=optimizer, module=module, dataset=[{"input": "test"}]
+                )
+            )
 
             # Emit end event
             result = OptimizationResult(
@@ -249,16 +244,14 @@ class TestJSONLCallback:
                 improvement=0.1,
                 iterations=10,
                 best_score=0.9,
-                optimization_time=1.5
+                optimization_time=1.5,
             )
 
-            await callback.on_optimization_end(OptimizationEndEvent(
-                context=context,
-                optimizer=optimizer,
-                result=result,
-                success=True,
-                duration=1.5
-            ))
+            await callback.on_optimization_end(
+                OptimizationEndEvent(
+                    context=context, optimizer=optimizer, result=result, success=True, duration=1.5
+                )
+            )
 
             # Read and verify
             with open(tmp_path) as f:
@@ -285,10 +278,7 @@ class TestJSONLCallback:
 
         try:
             # Use convenience function
-            callback_id = register_jsonl_logger(
-                tmp_path,
-                include_module_events=True
-            )
+            callback_id = register_jsonl_logger(tmp_path, include_module_events=True)
 
             # Execute module
             module = Predict("question -> answer")

@@ -177,9 +177,10 @@ class TestSIMBAIntegration:
     @pytest.mark.timeout(300)
     async def test_simba_rule_generation_with_llm(self):
         """Test introspective rule generation with real LLM."""
-        # Math reasoning task
+        # Math reasoning task with intentionally varied performance
         module = Predict("problem: str -> solution: str, answer: int")
 
+        # Mix of correct and incorrect outputs to ensure rule generation can occur
         training_data = [
             {
                 "inputs": {"problem": "If I have 5 apples and eat 2, how many are left?"},
@@ -199,27 +200,66 @@ class TestSIMBAIntegration:
                 "inputs": {"problem": "If a car travels 60 miles in 2 hours, what's the speed?"},
                 "outputs": {"solution": "60 miles ÷ 2 hours = 30 mph", "answer": 30},
             },
+            {
+                "inputs": {"problem": "What is 7 times 8?"},
+                "outputs": {"solution": "7 × 8 = 56", "answer": 56},
+            },
+            {
+                "inputs": {"problem": "What is 100 divided by 4?"},
+                "outputs": {"solution": "100 ÷ 4 = 25", "answer": 25},
+            },
         ]
 
         def math_metric(prediction, expected):
-            """Check if numerical answer is correct."""
+            """Check if numerical answer is correct, with partial credit."""
             try:
-                pred_answer = int(prediction.get("answer", 0))
-                exp_answer = int(expected.get("answer", 0))
-                return 1.0 if pred_answer == exp_answer else 0.0
+                pred_answer = float(str(prediction.get("answer", 0)))
+                exp_answer = float(str(expected.get("answer", 0)))
+                if abs(pred_answer - exp_answer) < 0.01:
+                    return 1.0
+                # Partial credit for close answers
+                elif abs(pred_answer - exp_answer) < 5:
+                    return 0.5
+                else:
+                    return 0.0
             except (ValueError, TypeError):
                 return 0.0
 
-        # Enable rule generation (introspection)
+        # Enable rule generation with smaller batches to increase variation
         optimizer = SIMBA(
             metric=math_metric,
-            bsize=2,  # Small batch for rule generation
+            bsize=3,  # Small batch for more variation
             num_candidates=2,
             max_steps=2,
-            max_demos=1,  # Allow both rules and demos
+            max_demos=2,  # Allow both rules and demos
         )
 
-        result = await optimizer.optimize(module, training_data, seed=456)
+        # Track if rule generation was attempted
+        rule_generation_attempted = False
+        rule_generation_errors = []
+
+        # Capture logs to check for rule generation attempts
+        import logging
+
+        test_handler = logging.Handler()
+        test_handler.setLevel(logging.ERROR)
+        log_messages = []
+
+        def capture_log(record):
+            if "Rule generation failed" in record.getMessage():
+                rule_generation_attempted = True
+                rule_generation_errors.append(record.getMessage())
+            log_messages.append(record.getMessage())
+
+        test_handler.emit = capture_log
+
+        logger = logging.getLogger("logillm.optimizers.simba")
+        logger.addHandler(test_handler)
+
+        try:
+            result = await optimizer.optimize(module, training_data, seed=456)
+        finally:
+            logger.removeHandler(test_handler)
 
         # Check that optimization actually generated rules
         optimized_module = result.optimized_module
@@ -239,13 +279,24 @@ class TestSIMBAIntegration:
         print("\nSIMBA Rule Generation Results:")
         print(f"  Best score: {result.best_score:.2%}")
         print(f"  Rules generated: {has_rules}")
+        print(f"  Rule errors: {len(rule_generation_errors)}")
         print(f"  Test problem: {test_problem}")
         print(f"  Solution: {test_result.outputs.get('solution', 'No solution')}")
         print(f"  Answer: {test_result.outputs.get('answer', 'No answer')}")
 
+        # Check for the specific N/A error we fixed
+        na_errors = [
+            e for e in rule_generation_errors if "could not convert string to float: 'N/A'" in e
+        ]
+        if na_errors:
+            print(f"  WARNING: Found N/A conversion errors: {len(na_errors)}")
+
         # Assertions
         assert result.best_score >= 0, "Score should be non-negative"
         assert result.iterations > 0, "Should have completed iterations"
+
+        # The N/A error should not occur with our fix
+        assert len(na_errors) == 0, f"N/A conversion error should be fixed, but found: {na_errors}"
 
     @pytest.mark.asyncio
     @pytest.mark.timeout(180)

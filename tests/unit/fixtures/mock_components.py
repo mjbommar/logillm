@@ -82,6 +82,7 @@ class MockProvider(Provider):
     async def _complete_impl(self, messages: list[dict[str, Any]], **kwargs) -> Any:
         """Mock completion implementation."""
         from logillm.core.types import Completion
+
         # Simple mock response
         if messages:
             last_message = messages[-1].get("content", "")
@@ -91,7 +92,7 @@ class MockProvider(Provider):
                 metadata={},
                 finish_reason="stop",
                 model=self.model,
-                provider=self.name
+                provider=self.name,
             )
         return Completion(
             text="Mock response",
@@ -99,7 +100,7 @@ class MockProvider(Provider):
             metadata={},
             finish_reason="stop",
             model=self.model,
-            provider=self.name
+            provider=self.name,
         )
 
     async def complete(self, prompt: str, **kwargs) -> str:

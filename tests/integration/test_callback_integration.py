@@ -122,6 +122,7 @@ class TestCallbackIntegration:
             summary = await inner(text=inputs.get("question", ""))
             # Then call the provider for the answer
             from logillm.core.types import Prediction
+
             return Prediction(outputs={"answer": f"Based on summary: {summary.outputs['summary']}"})
 
         # Patch the forward method
@@ -198,6 +199,7 @@ class TestCallbackIntegration:
     @pytest.mark.asyncio
     async def test_callback_json_logging(self):
         """Test JSON logging callback functionality."""
+
         # Create a custom JSON logger
         class JSONLogger(AbstractCallback):
             def __init__(self, filepath):
@@ -256,6 +258,7 @@ class TestCallbackIntegration:
             @property
             def priority(self):
                 from logillm.core.callbacks import Priority
+
                 return Priority.HIGH
 
             async def on_module_start(self, event):
@@ -269,6 +272,7 @@ class TestCallbackIntegration:
             @property
             def priority(self):
                 from logillm.core.callbacks import Priority
+
                 return Priority.LOW
 
             async def on_module_start(self, event):

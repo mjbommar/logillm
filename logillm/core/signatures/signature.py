@@ -141,12 +141,15 @@ class Signature(SignatureBase, metaclass=SignatureMeta):  # type: ignore[misc]
             if name in outputs:
                 value = outputs[name]
                 # Skip PydanticUndefined values
-                if hasattr(value, '__class__') and value.__class__.__name__ == 'PydanticUndefinedType':
+                if (
+                    hasattr(value, "__class__")
+                    and value.__class__.__name__ == "PydanticUndefinedType"
+                ):
                     # Treat as missing field
                     value = None
                     validated[name] = value
                     continue
-                    
+
                 # Perform type checking and constraint validation
                 try:
                     # Convert field to FieldSpec if needed for validation
@@ -179,6 +182,7 @@ class Signature(SignatureBase, metaclass=SignatureMeta):  # type: ignore[misc]
                 elif hasattr(field, "default"):
                     # For Pydantic FieldInfo
                     from pydantic_core import PydanticUndefined
+
                     if field.default is not PydanticUndefined:
                         validated[name] = field.default
                     else:

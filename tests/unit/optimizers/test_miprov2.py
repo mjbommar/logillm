@@ -13,6 +13,7 @@ from logillm.optimizers.proposers.base import InstructionProposal, ProposalStrat
 @pytest.fixture
 def mock_module():
     """Create a mock module for testing."""
+
     # Mock forward method
     async def mock_forward(**kwargs):
         return Prediction(success=True, outputs={"answer": "test answer"}, metadata={})

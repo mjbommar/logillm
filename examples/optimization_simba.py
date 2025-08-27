@@ -75,9 +75,7 @@ async def main():
             },
         },
         {
-            "inputs": {
-                "text": "Marvel announces three new movies for their upcoming phase."
-            },
+            "inputs": {"text": "Marvel announces three new movies for their upcoming phase."},
             "outputs": {
                 "category": "entertainment",
                 "confidence": "0.9",
@@ -106,7 +104,7 @@ async def main():
     # Test cases
     test_cases = [
         "Microsoft unveils new Surface laptop with AI capabilities",
-        "The championship game ended in overtime with a dramatic finish",  
+        "The championship game ended in overtime with a dramatic finish",
         "Scientists discover new treatment for rare disease",
         "Netflix releases trailer for highly anticipated new series",
     ]
@@ -125,14 +123,14 @@ async def main():
         confidence = Extractors.percentage(
             result.outputs.get("confidence"), as_decimal=True, default=0.5
         )
-        
+
         # Check if correct
         if expected_cat in category:
             baseline_correct += 1
             symbol = "✓"
         else:
             symbol = "✗"
-            
+
         print(f"{symbol} Text: {text[:40]}...")
         print(f"  → {category} (confidence: {confidence:.2f})")
 
@@ -143,9 +141,7 @@ async def main():
         """Score based on category match and confidence."""
         pred_cat = pred.get("category", "").lower()
         ref_cat = ref.get("category", "").lower()
-        confidence = Extractors.percentage(
-            pred.get("confidence"), as_decimal=True, default=0.5
-        )
+        confidence = Extractors.percentage(pred.get("confidence"), as_decimal=True, default=0.5)
 
         # Exact match with confidence weighting
         if pred_cat == ref_cat:
@@ -182,14 +178,14 @@ async def main():
         confidence = Extractors.percentage(
             result.outputs.get("confidence"), as_decimal=True, default=0.5
         )
-        
+
         # Check if correct
         if expected_cat in category:
             optimized_correct += 1
             symbol = "✓"
         else:
             symbol = "✗"
-            
+
         print(f"{symbol} Text: {text[:40]}...")
         print(f"  → {category} (confidence: {confidence:.2f})")
 
@@ -210,9 +206,7 @@ async def main():
             cat = demo.outputs.get("category", "")
             print(f"  {i}. '{text}...' → {cat}")
 
-    print(
-        "\n✨ Key insight: SIMBA learns WHY certain examples work better,"
-    )
+    print("\n✨ Key insight: SIMBA learns WHY certain examples work better,")
     print("   creating introspective rules that guide future selections.")
 
 

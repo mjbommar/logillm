@@ -545,3 +545,52 @@ class TestSIMBAIntegration:
             batch_90p_score=0.9,
         )
         assert result is False
+
+    @pytest.mark.asyncio
+    async def test_rule_generation_perfect_scores(self, mock_metric):
+        """Test rule generation when all scores are perfect (edge case that caused N/A bug)."""
+        optimizer = SIMBA(metric=mock_metric, bsize=2)
+        mock_module = MockModule()
+
+        # Test: All perfect scores (would trigger the N/A assignment)
+        perfect_bucket = [
+            {
+                "score": 1.0,
+                "trace": [],
+                "example": {"inputs": {"q": "test1"}},
+                "prediction": {"answer": "correct1"},
+            },
+            {
+                "score": 1.0,
+                "trace": [],
+                "example": {"inputs": {"q": "test2"}},
+                "prediction": {"answer": "correct2"},
+            },
+        ]
+
+        # Mock the feedback module to return advice
+        mock_feedback_result = Prediction(
+            outputs={"module_advice": '{"test_predictor": "Keep up the good work!"}'},
+            success=True,
+        )
+
+        with patch("logillm.core.predict.Predict") as mock_predict_class:
+            mock_predict_instance = AsyncMock()
+            mock_predict_instance.return_value = mock_feedback_result
+            mock_predict_class.return_value = mock_predict_instance
+
+            with patch.object(optimizer, "_named_predictors") as mock_named:
+                mock_named.return_value = [("test_predictor", mock_module)]
+
+                # This should not raise a "could not convert string to float: 'N/A'" error
+                result = await optimizer._append_rule(
+                    perfect_bucket,
+                    mock_module,
+                    predictor2name={},
+                    batch_10p_score=0.9,  # High 10th percentile
+                    batch_90p_score=1.0,  # Perfect 90th percentile
+                )
+
+                # Should handle the N/A case gracefully
+                assert result is True or result is False  # Either outcome is acceptable
+                # The key is that it doesn't raise an exception

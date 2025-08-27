@@ -46,31 +46,30 @@ class MockOptimizer(Optimizer[MockModule]):
 
         # Create a simple metric if none provided
         if metric is None:
+
             class SimpleMetric:
                 def __call__(self, pred, label):
                     return 1.0
+
                 @property
                 def name(self):
                     return "simple_metric"
+
                 def is_better(self, score1, score2):
                     return score1 > score2
+
             metric = SimpleMetric()
 
-        super().__init__(
-            strategy=OptimizationStrategy.BOOTSTRAP,
-            metric=metric
-        )
+        super().__init__(strategy=OptimizationStrategy.BOOTSTRAP, metric=metric)
         self.optimize_call_count = 0
         self.evaluate_call_count = 0
 
     async def optimize(
-        self,
-        module: MockModule,
-        dataset: list[dict[str, Any]],
-        **kwargs: Any
+        self, module: MockModule, dataset: list[dict[str, Any]], **kwargs: Any
     ) -> OptimizationResult:
         """Mock optimization."""
         import time
+
         start_time = time.time()
         self.optimize_call_count += 1
 
@@ -79,26 +78,31 @@ class MockOptimizer(Optimizer[MockModule]):
 
         if self._check_callbacks_enabled():
             from logillm.core.callbacks import OptimizationStartEvent
-            await self._emit_async(OptimizationStartEvent(
-                context=context,
-                optimizer=self,
-                module=module,
-                dataset=dataset,
-                config=self.config.metadata if hasattr(self.config, 'metadata') else {}
-            ))
+
+            await self._emit_async(
+                OptimizationStartEvent(
+                    context=context,
+                    optimizer=self,
+                    module=module,
+                    dataset=dataset,
+                    config=self.config.metadata if hasattr(self.config, "metadata") else {},
+                )
+            )
 
         # Just simulate optimization work
         await asyncio.sleep(0.01)
 
         # Simulate hyperparameter updates
         if self._check_callbacks_enabled():
-            await self._emit_async(HyperparameterUpdateEvent(
-                context=self._create_context(None),
-                optimizer=self,
-                module=module,
-                parameters={"temperature": 0.8, "top_p": 0.95},
-                iteration=1
-            ))
+            await self._emit_async(
+                HyperparameterUpdateEvent(
+                    context=self._create_context(None),
+                    optimizer=self,
+                    module=module,
+                    parameters={"temperature": 0.8, "top_p": 0.95},
+                    iteration=1,
+                )
+            )
 
         # Simulate evaluation
         score = await self.evaluate(module, dataset[:2])  # Eval on subset
@@ -109,30 +113,31 @@ class MockOptimizer(Optimizer[MockModule]):
             iterations=1,
             best_score=score,
             optimization_time=time.time() - start_time,
-            metadata={"final_params": {"temperature": 0.8}}
+            metadata={"final_params": {"temperature": 0.8}},
         )
 
         # Emit end event
         if self._check_callbacks_enabled():
             from logillm.core.callbacks import OptimizationEndEvent
-            await self._emit_async(OptimizationEndEvent(
-                context=context,
-                optimizer=self,
-                result=result,
-                success=True,
-                duration=result.optimization_time
-            ))
+
+            await self._emit_async(
+                OptimizationEndEvent(
+                    context=context,
+                    optimizer=self,
+                    result=result,
+                    success=True,
+                    duration=result.optimization_time,
+                )
+            )
 
         return result
 
     async def evaluate(
-        self,
-        module: MockModule,
-        dataset: list[dict[str, Any]],
-        **kwargs: Any
+        self, module: MockModule, dataset: list[dict[str, Any]], **kwargs: Any
     ) -> float:
         """Mock evaluation."""
         import time
+
         start_time = time.time()
         self.evaluate_call_count += 1
 
@@ -141,12 +146,12 @@ class MockOptimizer(Optimizer[MockModule]):
 
         if self._check_callbacks_enabled():
             from logillm.core.callbacks import EvaluationStartEvent
-            await self._emit_async(EvaluationStartEvent(
-                context=context,
-                optimizer=self,
-                module=module,
-                dataset=dataset
-            ))
+
+            await self._emit_async(
+                EvaluationStartEvent(
+                    context=context, optimizer=self, module=module, dataset=dataset
+                )
+            )
 
         # Simulate evaluation work
         await asyncio.sleep(0.01)
@@ -157,13 +162,16 @@ class MockOptimizer(Optimizer[MockModule]):
         # Emit end event
         if self._check_callbacks_enabled():
             from logillm.core.callbacks import EvaluationEndEvent
-            await self._emit_async(EvaluationEndEvent(
-                context=context,
-                optimizer=self,
-                module=module,
-                score=score,
-                duration=time.time() - start_time
-            ))
+
+            await self._emit_async(
+                EvaluationEndEvent(
+                    context=context,
+                    optimizer=self,
+                    module=module,
+                    score=score,
+                    duration=time.time() - start_time,
+                )
+            )
 
         return score
 
@@ -314,6 +322,7 @@ class TestOptimizerCallbacks:
         class TestHandler(AbstractCallback):
             async def on_optimization_start(self, event: OptimizationStartEvent):
                 events.append(event)
+
             async def on_optimization_end(self, event: OptimizationEndEvent):
                 events.append(event)
 
@@ -338,6 +347,7 @@ class TestOptimizerCallbacks:
         class TestHandler(AbstractCallback):
             async def on_optimization_start(self, event: OptimizationStartEvent):
                 start_contexts.append(event.context)
+
             async def on_optimization_end(self, event: OptimizationEndEvent):
                 end_contexts.append(event.context)
 
@@ -431,13 +441,15 @@ class TestOptimizerCallbacks:
             async def optimize(self, module, dataset, **kwargs):
                 # Emit start event
                 if self._check_callbacks_enabled():
-                    await self._emit_async(OptimizationStartEvent(
-                        context=self._create_context(None),
-                        optimizer=self,
-                        module=module,
-                        dataset=dataset,
-                        config=kwargs
-                    ))
+                    await self._emit_async(
+                        OptimizationStartEvent(
+                            context=self._create_context(None),
+                            optimizer=self,
+                            module=module,
+                            dataset=dataset,
+                            config=kwargs,
+                        )
+                    )
                 # Then fail
                 raise ValueError("Optimization failed")
 
@@ -446,6 +458,7 @@ class TestOptimizerCallbacks:
         class TestHandler(AbstractCallback):
             async def on_optimization_start(self, event: OptimizationStartEvent):
                 events.append(("start", event))
+
             async def on_optimization_end(self, event: OptimizationEndEvent):
                 events.append(("end", event))
 
@@ -487,6 +500,7 @@ class TestOptimizerCallbacks:
         class TestHandler(AbstractCallback):
             async def on_evaluation_start(self, event: EvaluationStartEvent):
                 pass
+
             async def on_evaluation_end(self, event: EvaluationEndEvent):
                 pass
 
