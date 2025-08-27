@@ -54,19 +54,12 @@ pip install logillm[anthropic]  # For Claude models
 
 ## Learning Path
 
-### 🚀 New to LogiLLM?
-Start with our interactive tutorials (15 minutes each):
-
-1. **[LLM Text Generation](docs/tutorials/llms-txt-generation.md)** - Generate repository documentation
-2. **[Email Extraction](docs/tutorials/email-extraction.md)** - Structured data from messy emails  
-3. **[Yahoo Finance ReAct](docs/tutorials/yahoo-finance-react.md)** - Build a financial analysis agent
-
-**→ [Full Tutorial Index](docs/tutorials/README.md)** - 6 complete tutorials from beginner to advanced
-
 ### 📚 Complete Documentation
 - **[Getting Started Guide](docs/tutorials/getting-started.md)** - Personalized tutorial recommendations
 - **[Tutorial Matrix](docs/tutorials/tutorial-matrix.md)** - Difficulty levels and time estimates  
 - **[Tutorial Examples](examples/tutorials/)** - Complete working code for all tutorials
+
+**→ [Full Tutorial Index](docs/tutorials/README.md)** - 6 complete tutorials from beginner to advanced
 
 ## Working Examples
 
@@ -173,6 +166,118 @@ result.optimized_module.save("sentiment_model.json")
 # Load in production
 classifier = Predict.load("sentiment_model.json")
 ```
+
+### Optimizer Comparison
+
+LogiLLM provides a comprehensive suite of optimizers, each designed for different optimization scenarios:
+
+| Optimizer | Type | What it Optimizes | Best For | Key Features |
+|-----------|------|-------------------|----------|--------------|
+| **HybridOptimizer** ⭐ | Hybrid | Prompts + Hyperparameters | Production systems | LogiLLM's killer feature - simultaneous optimization |
+| **SIMBA** | Hybrid | Hyperparameters + Demos | Complex tasks | Introspective rule generation with mini-batches |
+| **MIPROv2** | Prompt | Instructions + Demos | Multi-stage optimization | Bayesian optimization with multi-objective support |
+| **COPRO** | Prompt | Instructions | Instruction refinement | Breadth-first search with temperature control |
+| **BootstrapFewShot** | Prompt | Few-shot examples | Learning from data | Teacher-student demonstration generation |
+| **KNNFewShot** | Prompt | Example selection | Dynamic examples | Semantic similarity-based selection |
+| **FormatOptimizer** | Prompt | Output format | Format discovery | Tests JSON vs XML vs Markdown |
+| **InstructionOptimizer** | Prompt | Task instructions | Instruction clarity | LLM-based instruction generation |
+| **LabeledFewShot** | Prompt | Hand-crafted examples | Baseline comparison | Traditional few-shot approach |
+| **HyperparameterOptimizer** | Hyperparameter | Temperature, top_p, etc. | Parameter tuning | Bayesian, Grid, Random search |
+| **AvatarOptimizer** | Ensemble | Multiple personas | Complex reasoning | Multi-perspective ensemble |
+| **ReflectiveEvolution** | Prompt | Execution traces | Self-improvement | LLM reflection on past runs |
+| **MultiObjective** | Hybrid | Multiple metrics | Trade-off optimization | Balance accuracy, cost, latency |
+
+### Optimizer Taxonomy
+
+```mermaid
+graph LR
+    subgraph "Prompt Optimizers"
+        direction TB
+        P1[BootstrapFewShot<br/>📚 Teacher-Student Learning]
+        P2[COPRO<br/>🔄 Instruction Refinement]
+        P3[KNNFewShot<br/>🎯 Semantic Selection]
+        P4[FormatOptimizer<br/>📝 JSON/XML/Markdown]
+        P5[InstructionOptimizer<br/>💡 LLM Generation]
+        P6[LabeledFewShot<br/>✋ Manual Examples]
+    end
+    
+    subgraph "Hyperparameter Optimizers"
+        direction TB
+        H1[HyperparameterOptimizer<br/>🎛️ Bayesian Search]
+        H2[GridSearch<br/>📊 Systematic]
+        H3[RandomSearch<br/>🎲 Stochastic]
+    end
+    
+    subgraph "Hybrid Optimizers"
+        direction TB
+        Y1[HybridOptimizer ⭐<br/>🚀 Prompts + Params]
+        Y2[SIMBA<br/>🧠 Rules + Params]
+        Y3[MIPROv2<br/>🔀 Multi-stage Pipeline]
+        Y4[MultiObjective<br/>⚖️ Balance Metrics]
+    end
+    
+    subgraph "Specialized"
+        direction TB
+        S1[AvatarOptimizer<br/>👥 Multi-persona]
+        S2[ReflectiveEvolution<br/>🔍 Self-improvement]
+    end
+    
+    style Y1 fill:#f96,stroke:#333,stroke-width:3px
+    style Y2 fill:#fcc,stroke:#333,stroke-width:2px
+    style Y3 fill:#fcc,stroke:#333,stroke-width:2px
+```
+
+### Optimization Workflow
+
+```mermaid
+graph LR
+    A[📊 Training Data] --> B{Choose Optimizer}
+    B -->|Simple Task| C[Prompt Only]
+    B -->|Parameter Tuning| D[Hyperparameter Only]
+    B -->|Best Results| E[Hybrid Strategy ⭐]
+    
+    E --> F{Select Strategy}
+    F -->|Alternating| G[Prompts → Params → Repeat]
+    F -->|Joint| H[Simultaneous Optimization]
+    F -->|Sequential| I[Params → Then Prompts]
+    
+    C --> J[Evaluate Performance]
+    D --> J
+    G --> J
+    H --> J
+    I --> J
+    
+    J --> K{Good Enough?}
+    K -->|No| L[Adjust & Retry]
+    K -->|Yes| M[💾 Save Model]
+    
+    L --> B
+    M --> N[🚀 Deploy to Production]
+    
+    N --> O[Load & Use]
+    O --> P[Monitor Performance]
+    
+    style E fill:#f96,stroke:#333,stroke-width:3px
+    style M fill:#9f9,stroke:#333,stroke-width:2px
+    style N fill:#9f9,stroke:#333,stroke-width:2px
+```
+
+### Choosing the Right Optimizer
+
+**For most use cases:** Start with `HybridOptimizer` - it optimizes both prompts and hyperparameters:
+```python
+optimizer = HybridOptimizer(
+    metric=your_metric,
+    strategy="alternating"  # or "joint", "sequential"
+)
+```
+
+**For specific scenarios:**
+- **Limited training data?** → Use `LabeledFewShot` with hand-crafted examples
+- **Need dynamic examples?** → Use `KNNFewShot` for semantic similarity selection
+- **Complex multi-step tasks?** → Use `MIPROv2` for sophisticated pipeline optimization
+- **Want to understand why it works?** → Use `SIMBA` for introspective rule generation
+- **Multiple competing objectives?** → Use `MultiObjective` to balance trade-offs
 
 ### JSONL Logging for Optimization Tracking
 ```python

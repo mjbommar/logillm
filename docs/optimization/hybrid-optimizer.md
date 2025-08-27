@@ -31,6 +31,35 @@ set_hyperparameter(module, "max_tokens", "200") # Converted to int(200)
 
 This prevents runtime errors from invalid hyperparameter values during optimization.
 
+## Optimization Workflow
+
+```mermaid
+graph LR
+    A[📊 Training Data] --> B{Choose Strategy}
+    B -->|Iterative| C[Alternating]
+    B -->|Global Search| D[Joint]
+    B -->|Efficiency| E[Sequential]
+    
+    C --> F[Prompts → Params → Repeat]
+    D --> G[Simultaneous Optimization]
+    E --> H[Params → Then Prompts]
+    
+    F --> I[Evaluate & Converge]
+    G --> I
+    H --> I
+    
+    I --> J{Performance OK?}
+    J -->|No| K[Adjust Strategy/Config]
+    J -->|Yes| L[💾 Save Optimized Model]
+    
+    K --> B
+    L --> M[🚀 Production Deployment]
+    
+    style C fill:#fcc,stroke:#333,stroke-width:2px
+    style D fill:#f96,stroke:#333,stroke-width:3px
+    style L fill:#9f9,stroke:#333,stroke-width:2px
+```
+
 ## The Three Strategies
 
 ### 1. Alternating Strategy (Default)

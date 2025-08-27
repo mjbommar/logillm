@@ -122,14 +122,64 @@ LogiLLM provides a comprehensive suite of optimizers:
 - **BootstrapFewShot**: DSPy's teacher-student demonstration generation
 - **COPRO**: Collaborative prompt optimization with iterative refinement
 - **FormatOptimizer**: Discovers optimal prompt formats (JSON/XML/Markdown)
+- **KNNFewShot**: Dynamic example selection based on semantic similarity
+- **InstructionOptimizer**: LLM-based instruction generation
+- **LabeledFewShot**: Traditional few-shot with hand-crafted examples
 
 ### Hyperparameter Optimizers  
-- **SIMBA**: Stochastic introspective optimization with Bayesian search
-- **Search Strategies**: Random, Grid, Bayesian, Latin Hypercube sampling
+- **HyperparameterOptimizer**: Main optimizer with Bayesian search
+- **GridSearch**: Systematic parameter exploration
+- **RandomSearch**: Stochastic sampling strategies
 
 ### Hybrid Optimizers
-- **HybridOptimizer**: Simultaneous prompt + hyperparameter optimization
+- **HybridOptimizer**: Simultaneous prompt + hyperparameter optimization ⭐
+- **SIMBA**: Introspective optimization with rule generation
+- **MIPROv2**: Multi-stage pipeline optimization
 - **MultiObjective**: Balance accuracy, latency, cost, and consistency
+
+### Specialized Optimizers
+- **AvatarOptimizer**: Multi-persona ensemble reasoning
+- **ReflectiveEvolution**: Self-improvement through execution trace analysis
+
+## Optimizer Taxonomy
+
+```mermaid
+graph LR
+    subgraph "Prompt Optimizers"
+        direction TB
+        P1[BootstrapFewShot<br/>📚 Teacher-Student Learning]
+        P2[COPRO<br/>🔄 Instruction Refinement]
+        P3[KNNFewShot<br/>🎯 Semantic Selection]
+        P4[FormatOptimizer<br/>📝 JSON/XML/Markdown]
+        P5[InstructionOptimizer<br/>💡 LLM Generation]
+        P6[LabeledFewShot<br/>✋ Manual Examples]
+    end
+    
+    subgraph "Hyperparameter Optimizers"
+        direction TB
+        H1[HyperparameterOptimizer<br/>🎛️ Bayesian Search]
+        H2[GridSearch<br/>📊 Systematic]
+        H3[RandomSearch<br/>🎲 Stochastic]
+    end
+    
+    subgraph "Hybrid Optimizers"
+        direction TB
+        Y1[HybridOptimizer ⭐<br/>🚀 Prompts + Params]
+        Y2[SIMBA<br/>🧠 Rules + Params]
+        Y3[MIPROv2<br/>🔀 Multi-stage Pipeline]
+        Y4[MultiObjective<br/>⚖️ Balance Metrics]
+    end
+    
+    subgraph "Specialized"
+        direction TB
+        S1[AvatarOptimizer<br/>👥 Multi-persona]
+        S2[ReflectiveEvolution<br/>🔍 Self-improvement]
+    end
+    
+    style Y1 fill:#f96,stroke:#333,stroke-width:3px
+    style Y2 fill:#fcc,stroke:#333,stroke-width:2px
+    style Y3 fill:#fcc,stroke:#333,stroke-width:2px
+```
 
 ## Optimization Strategies Explained
 
@@ -170,6 +220,41 @@ module_with_optimal_hyperparams = hyper_result.optimized_module
 # Step 2: Find optimal prompts using those hyperparameters
 prompt_result = prompt_optimizer.optimize(module_with_optimal_hyperparams)
 final_module = prompt_result.optimized_module
+```
+
+## Optimization Workflow
+
+```mermaid
+graph LR
+    A[📊 Training Data] --> B{Choose Optimizer}
+    B -->|Simple Task| C[Prompt Only]
+    B -->|Parameter Tuning| D[Hyperparameter Only]
+    B -->|Best Results| E[Hybrid Strategy ⭐]
+    
+    E --> F{Select Strategy}
+    F -->|Alternating| G[Prompts → Params → Repeat]
+    F -->|Joint| H[Simultaneous Optimization]
+    F -->|Sequential| I[Params → Then Prompts]
+    
+    C --> J[Evaluate Performance]
+    D --> J
+    G --> J
+    H --> J
+    I --> J
+    
+    J --> K{Good Enough?}
+    K -->|No| L[Adjust & Retry]
+    K -->|Yes| M[💾 Save Model]
+    
+    L --> B
+    M --> N[🚀 Deploy to Production]
+    
+    N --> O[Load & Use]
+    O --> P[Monitor Performance]
+    
+    style E fill:#f96,stroke:#333,stroke-width:3px
+    style M fill:#9f9,stroke:#333,stroke-width:2px
+    style N fill:#9f9,stroke:#333,stroke-width:2px
 ```
 
 ## Monitoring Optimization Progress
