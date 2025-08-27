@@ -140,6 +140,13 @@ class Signature(SignatureBase, metaclass=SignatureMeta):  # type: ignore[misc]
         for name, field in cls.output_fields.items():
             if name in outputs:
                 value = outputs[name]
+                # Skip PydanticUndefined values
+                if hasattr(value, '__class__') and value.__class__.__name__ == 'PydanticUndefinedType':
+                    # Treat as missing field
+                    value = None
+                    validated[name] = value
+                    continue
+                    
                 # Perform type checking and constraint validation
                 try:
                     # Convert field to FieldSpec if needed for validation
@@ -164,13 +171,40 @@ class Signature(SignatureBase, metaclass=SignatureMeta):  # type: ignore[misc]
                     validated[name] = value
                 except Exception as e:
                     raise ValueError(f"Validation failed for field '{name}': {e}") from e
-            elif hasattr(field, "has_default") and field.has_default():
-                # Use default value if it exists (even if it's None)
-                validated[name] = field.default
-            elif not hasattr(field, "has_default"):
-                # For fields without has_default method (e.g. Pydantic FieldInfo)
-                if hasattr(field, "default") and field.default is not None:
+            else:
+                # Field not in outputs - provide a default
+                if hasattr(field, "has_default") and field.has_default():
+                    # Use default value if it exists (even if it's None)
                     validated[name] = field.default
+                elif hasattr(field, "default"):
+                    # For Pydantic FieldInfo
+                    from pydantic_core import PydanticUndefined
+                    if field.default is not PydanticUndefined:
+                        validated[name] = field.default
+                    else:
+                        # No default, use None or empty list/dict based on type
+                        expected_type = getattr(field, "annotation", None)
+                        if expected_type:
+                            if hasattr(expected_type, "__origin__"):
+                                # Handle generic types like list[str]
+                                origin = expected_type.__origin__
+                                if origin is list:
+                                    validated[name] = []
+                                elif origin is dict:
+                                    validated[name] = {}
+                                else:
+                                    validated[name] = None
+                            elif expected_type is list:
+                                validated[name] = []
+                            elif expected_type is dict:
+                                validated[name] = {}
+                            else:
+                                validated[name] = None
+                        else:
+                            validated[name] = None
+                else:
+                    # Fallback to None
+                    validated[name] = None
         return validated
 
     @classmethod

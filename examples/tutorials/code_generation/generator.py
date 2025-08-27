@@ -50,27 +50,27 @@ class LibraryCodeGenerator(Module):
 
         # Common library examples for fallback
         self.common_examples = create_common_library_examples()
-    
+
     def _parse_json_list(self, text: str) -> list[str]:
         """Parse JSON array from text with fallbacks."""
         if not text:
             return []
-            
+
         text = text.strip()
-        
+
         # Try JSON array format
-        if text.startswith('[') and text.endswith(']'):
+        if text.startswith("[") and text.endswith("]"):
             try:
                 return json.loads(text)
             except json.JSONDecodeError:
                 pass
-        
+
         # Fallback: split by comma or newlines
-        if ',' in text:
-            return [item.strip() for item in text.split(',')]
-        elif '\n' in text:
-            return [item.strip() for item in text.split('\n') if item.strip()]
-        
+        if "," in text:
+            return [item.strip() for item in text.split(",")]
+        elif "\n" in text:
+            return [item.strip() for item in text.split("\n") if item.strip()]
+
         return [text] if text else []
 
     async def analyze_library(self, library_name: str, documentation: str) -> Any:
@@ -109,7 +109,7 @@ class LibraryCodeGenerator(Module):
             patterns_str = json.dumps(library_patterns)
         else:
             patterns_str = library_patterns
-            
+
         return await self.code_refiner(
             original_code=original_code, feedback=feedback, library_patterns=patterns_str
         )
@@ -148,7 +148,7 @@ class LibraryCodeGenerator(Module):
         # Parse string lists for display
         parsed_concepts = self._parse_json_list(analysis.core_concepts)
         parsed_patterns = self._parse_json_list(analysis.common_patterns)
-        
+
         print(f"✅ Found {len(parsed_concepts)} core concepts")
         print(f"✅ Identified {len(parsed_patterns)} patterns")
 

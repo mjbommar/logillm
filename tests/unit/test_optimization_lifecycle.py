@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from logillm.core.predict import Predict
-from logillm.optimizers import BootstrapFewShot
 from logillm.optimizers.base import Demonstration
+from logillm.optimizers.bootstrap_fewshot import BootstrapFewShot
 
 
 class TestOptimizationLifecycle:

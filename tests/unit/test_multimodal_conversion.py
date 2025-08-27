@@ -1,6 +1,7 @@
 """Unit tests for multimodal message conversion."""
 
 import base64
+import importlib.util
 from unittest.mock import patch
 
 import pytest
@@ -268,6 +269,10 @@ class TestOpenAIMultimodalConversion:
             openai_provider.validate_content_types(messages)
 
 
+@pytest.mark.skipif(
+    not any(importlib.util.find_spec(pkg) for pkg in ["anthropic"]),
+    reason="anthropic package not installed",
+)
 class TestAnthropicMultimodalConversion:
     """Test Anthropic provider multimodal message conversion."""
 

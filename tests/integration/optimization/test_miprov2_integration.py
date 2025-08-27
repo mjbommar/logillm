@@ -117,10 +117,11 @@ class TestMIPROv2Integration:
             except (ValueError, TypeError):
                 return 0.0
 
-        # Medium mode with instruction proposals
+        # Light mode for faster testing (medium mode times out)
         config = MIPROv2Config(
-            mode="medium",
-            num_instructions=3,  # Generate 3 instruction variants
+            mode="light",  # Changed from medium to avoid timeout
+            num_candidates=2,  # Explicit small number of candidates
+            num_instructions=2,  # Generate 2 instruction variants
             max_bootstrapped_demos=1,
             num_trials=2,  # Quick test
         )

@@ -11,8 +11,11 @@ from logillm.providers.mock import MockProvider
 
 
 # Test implementation of Module for testing
-class TestModule(Module):
-    """Concrete Module for testing."""
+class _TestModule(Module):
+    """Concrete Module for testing.
+    
+    Named with underscore prefix to prevent pytest from collecting it as a test class.
+    """
 
     async def forward(self, **inputs):
         """Simple forward implementation."""
@@ -25,15 +28,15 @@ class TestDebugMode:
     def test_module_debug_init_explicit(self):
         """Test explicit debug parameter in module initialization."""
         # Debug enabled
-        module_debug = TestModule(signature=None, debug=True)
+        module_debug = _TestModule(signature=None, debug=True)
         assert module_debug.is_debugging() is True
 
         # Debug disabled
-        module_no_debug = TestModule(signature=None, debug=False)
+        module_no_debug = _TestModule(signature=None, debug=False)
         assert module_no_debug.is_debugging() is False
 
         # Default (no debug parameter)
-        module_default = TestModule(signature=None)
+        module_default = _TestModule(signature=None)
         assert module_default.is_debugging() is False
 
     def test_module_debug_environment_variable(self):
@@ -41,13 +44,13 @@ class TestDebugMode:
         # Set environment variable
         os.environ["LOGILLM_DEBUG"] = "1"
         try:
-            module = TestModule(signature=None)
+            module = _TestModule(signature=None)
             assert module.is_debugging() is True
         finally:
             del os.environ["LOGILLM_DEBUG"]
 
         # Without environment variable
-        module = TestModule(signature=None)
+        module = _TestModule(signature=None)
         assert module.is_debugging() is False
 
     def test_module_debug_explicit_overrides_env(self):
@@ -55,18 +58,18 @@ class TestDebugMode:
         os.environ["LOGILLM_DEBUG"] = "1"
         try:
             # Explicit False should override environment
-            module = TestModule(signature=None, debug=False)
+            module = _TestModule(signature=None, debug=False)
             assert module.is_debugging() is False
 
             # Explicit True when env is set
-            module = TestModule(signature=None, debug=True)
+            module = _TestModule(signature=None, debug=True)
             assert module.is_debugging() is True
         finally:
             del os.environ["LOGILLM_DEBUG"]
 
     def test_module_debug_methods(self):
         """Test enable/disable debug methods."""
-        module = TestModule(signature=None, debug=False)
+        module = _TestModule(signature=None, debug=False)
         assert module.is_debugging() is False
 
         # Enable debug

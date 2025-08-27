@@ -5,8 +5,10 @@ This is impossible in DSPy because they have no hyperparameter optimization infr
 
 import copy
 import time
+from datetime import datetime
 from typing import Any, Optional
 
+from ..core.config_utils import ensure_config, update_config
 from ..core.modules import Module
 from ..core.optimizers import Metric, Optimizer
 from ..core.parameters import SearchSpace
@@ -122,14 +124,67 @@ class HybridOptimizer(Optimizer):
         Returns:
             OptimizationResult with optimized module
         """
-        if self.optimization_strategy == "alternating":
-            return await self._alternating_optimization(module, dataset, validation_set, **kwargs)
-        elif self.optimization_strategy == "joint":
-            return await self._joint_optimization(module, dataset, validation_set, **kwargs)
-        elif self.optimization_strategy == "sequential":
-            return await self._sequential_optimization(module, dataset, validation_set, **kwargs)
-        else:
-            raise ValueError(f"Unknown strategy: {self.optimization_strategy}")
+        self._start_time = datetime.now()
+
+        # Create callback context
+        context = self._create_context()
+
+        # Emit optimization start event
+        if self._check_callbacks_enabled():
+            from ..core.callbacks import OptimizationStartEvent
+
+            await self._emit_async(
+                OptimizationStartEvent(
+                    context=context, optimizer=self, module=module, dataset=dataset
+                )
+            )
+
+        try:
+            if self.optimization_strategy == "alternating":
+                result = await self._alternating_optimization(
+                    module, dataset, validation_set, **kwargs
+                )
+            elif self.optimization_strategy == "joint":
+                result = await self._joint_optimization(module, dataset, validation_set, **kwargs)
+            elif self.optimization_strategy == "sequential":
+                result = await self._sequential_optimization(
+                    module, dataset, validation_set, **kwargs
+                )
+            else:
+                raise ValueError(f"Unknown strategy: {self.optimization_strategy}")
+
+            # Emit optimization end event
+            if self._check_callbacks_enabled():
+                from ..core.callbacks import OptimizationEndEvent
+
+                await self._emit_async(
+                    OptimizationEndEvent(
+                        context=context,
+                        optimizer=self,
+                        result=result,
+                        success=True,
+                        duration=(datetime.now() - self._start_time).total_seconds(),
+                    )
+                )
+
+            return result
+
+        except Exception as e:
+            # Emit optimization end event with failure
+            if self._check_callbacks_enabled():
+                from ..core.callbacks import OptimizationEndEvent
+
+                await self._emit_async(
+                    OptimizationEndEvent(
+                        context=context,
+                        optimizer=self,
+                        result=None,
+                        success=False,
+                        duration=(datetime.now() - self._start_time).total_seconds(),
+                        error=e,
+                    )
+                )
+            raise
 
     async def _alternating_optimization(
         self,
@@ -515,12 +570,15 @@ class HybridOptimizer(Optimizer):
         """Apply joint configuration to module."""
         result = copy.deepcopy(module)
 
+        # Ensure module has proper config
+        ensure_config(result)
+
         # Apply hyperparameters
         hyperparam_config = {
             k: v for k, v in config.items() if k not in ["num_demos", "instruction_style"]
         }
         if hyperparam_config:
-            result.config.update(hyperparam_config)
+            update_config(result, hyperparam_config)
 
         # Apply prompt parameters
         if "num_demos" in config and config["num_demos"] > 0 and dataset:

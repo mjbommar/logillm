@@ -7,6 +7,12 @@ whether the config is a dict, dataclass, or other object.
 
 from typing import Any
 
+from .hyperparameters import (
+    HYPERPARAMETER_DEFINITIONS,
+    HyperparameterConfig,
+    ensure_hyperparameter_config,
+)
+
 
 def set_config_value(obj: Any, key: str, value: Any) -> None:
     """Set a configuration value on an object, handling different config types.
@@ -17,11 +23,15 @@ def set_config_value(obj: Any, key: str, value: Any) -> None:
         value: Value to set
     """
     if not hasattr(obj, "config"):
-        return
+        # Initialize config if missing
+        obj.config = HyperparameterConfig()
 
     config = obj.config
 
-    if isinstance(config, dict):
+    if isinstance(config, HyperparameterConfig):
+        # Use HyperparameterConfig's validated setting
+        config[key] = value
+    elif isinstance(config, dict):
         # Config is a dict - use dictionary access
         config[key] = value
     elif hasattr(config, "update") and callable(config.update):
@@ -53,7 +63,10 @@ def get_config_value(obj: Any, key: str, default: Any = None) -> Any:
 
     config = obj.config
 
-    if isinstance(config, dict):
+    if isinstance(config, HyperparameterConfig):
+        # Use HyperparameterConfig's get method
+        return config.get(key, default)
+    elif isinstance(config, dict):
         # Config is a dict - use get method
         return config.get(key, default)
     elif hasattr(config, key):
@@ -77,11 +90,15 @@ def update_config(obj: Any, updates: dict[str, Any]) -> None:
         updates: Dictionary of configuration updates
     """
     if not hasattr(obj, "config"):
-        return
+        # Initialize config if missing
+        obj.config = HyperparameterConfig()
 
     config = obj.config
 
-    if isinstance(config, dict):
+    if isinstance(config, HyperparameterConfig):
+        # Use HyperparameterConfig's update method
+        config.update(updates)
+    elif isinstance(config, dict):
         # Config is a dict - use update method
         config.update(updates)
     else:
@@ -104,7 +121,9 @@ def copy_config(obj: Any) -> dict[str, Any]:
 
     config = obj.config
 
-    if isinstance(config, dict):
+    if isinstance(config, HyperparameterConfig):
+        return config.copy()
+    elif isinstance(config, dict):
         return config.copy()
     elif hasattr(config, "__dict__"):
         # Config is an object - copy its __dict__
@@ -127,17 +146,7 @@ def copy_config(obj: Any) -> dict[str, Any]:
 
 
 # Common hyperparameter keys for reference
-HYPERPARAMETER_KEYS = [
-    "temperature",
-    "top_p",
-    "max_tokens",
-    "frequency_penalty",
-    "presence_penalty",
-    "repetition_penalty",
-    "seed",
-    "stop",
-    "top_k",
-]
+HYPERPARAMETER_KEYS = list(HYPERPARAMETER_DEFINITIONS.keys())
 
 
 def set_hyperparameter(obj: Any, param: str, value: Any) -> None:
@@ -189,6 +198,19 @@ def get_hyperparameter(obj: Any, param: str, default: Any = None) -> Any:
     return default
 
 
+def ensure_config(obj: Any) -> None:
+    """Ensure an object has a HyperparameterConfig.
+
+    Args:
+        obj: Object to ensure has config
+    """
+    if not hasattr(obj, "config"):
+        obj.config = HyperparameterConfig()
+    elif isinstance(obj.config, dict):
+        # Convert dict to HyperparameterConfig
+        obj.config = HyperparameterConfig(obj.config)
+
+
 __all__ = [
     "set_config_value",
     "get_config_value",
@@ -196,5 +218,8 @@ __all__ = [
     "copy_config",
     "set_hyperparameter",
     "get_hyperparameter",
+    "ensure_config",
     "HYPERPARAMETER_KEYS",
+    "HyperparameterConfig",
+    "ensure_hyperparameter_config",
 ]

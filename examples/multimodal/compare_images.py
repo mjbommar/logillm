@@ -60,10 +60,7 @@ async def main():
     provider = OpenAIProvider(model="gpt-4.1")
 
     # Create the predictor
-    predictor = Predict(
-        signature=ImageComparisonSignature,
-        provider=provider
-    )
+    predictor = Predict(signature=ImageComparisonSignature, provider=provider)
 
     # Load both images
     print("Loading images...")

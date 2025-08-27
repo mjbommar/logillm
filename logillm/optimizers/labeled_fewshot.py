@@ -1,6 +1,7 @@
 """LabeledFewShot optimizer - simplest baseline that just adds demos."""
 
 import copy
+from datetime import datetime
 from typing import Any, Optional
 
 from ..core.modules import Module, Parameter
@@ -66,66 +67,114 @@ class LabeledFewShot(PromptOptimizer):
         """
         import time
 
+        self._start_time = datetime.now()
         start_time = time.time()
 
-        # Create demonstrations from dataset
-        demonstrations = []
-        for example in dataset[: self.max_demos * 2]:  # Take more than needed for selection
-            demo = Demonstration.from_example(example)
-            # Score is 1.0 for labeled data (assumed correct)
-            demo.score = 1.0
-            demonstrations.append(demo)
+        # Create callback context
+        context = self._create_context()
 
-        # Select demonstrations
-        selected_demos = self.demo_selector.select(demonstrations, self.max_demos)
+        # Emit optimization start event
+        if self._check_callbacks_enabled():
+            from ..core.callbacks import OptimizationStartEvent
 
-        # Create new module with demonstrations
-        optimized_module = copy.deepcopy(module)
+            await self._emit_async(
+                OptimizationStartEvent(
+                    context=context, optimizer=self, module=module, dataset=dataset
+                )
+            )
 
-        # Add demonstrations to the demo_manager (for Predict modules)
-        if hasattr(optimized_module, "demo_manager"):
-            # Clear existing demos and add new ones
-            demo_manager = optimized_module.demo_manager
-            demo_manager.clear()  # type: ignore[attr-defined]
-            for demo in selected_demos:
-                demo_manager.add({"inputs": demo.inputs, "outputs": demo.outputs})  # type: ignore[attr-defined]
+        try:
+            # Create demonstrations from dataset
+            demonstrations = []
+            for example in dataset[: self.max_demos * 2]:  # Take more than needed for selection
+                demo = Demonstration.from_example(example)
+                # Score is 1.0 for labeled data (assumed correct)
+                demo.score = 1.0
+                demonstrations.append(demo)
 
-        # Also add demonstrations as a parameter for tracking
-        demo_param = Parameter(
-            value=[d.to_dict() for d in selected_demos],
-            learnable=True,
-            metadata={
-                "type": "demonstrations",
-                "source": "labeled",
-                "selection_strategy": self.demo_selector.__class__.__name__,
-            },
-        )
-        optimized_module.parameters["demonstrations"] = demo_param
+            # Select demonstrations
+            selected_demos = self.demo_selector.select(demonstrations, self.max_demos)
 
-        # Evaluate if validation set provided
-        final_score = 0.0
-        eval_traces = []
-        if validation_set:
-            final_score, eval_traces = await self.evaluate(optimized_module, validation_set)
+            # Create new module with demonstrations
+            optimized_module = copy.deepcopy(module)
 
-        # Also evaluate baseline for improvement calculation
-        baseline_score = 0.0
-        if validation_set:
-            baseline_score, _ = await self.evaluate(module, validation_set)
+            # Add demonstrations to the demo_manager (for Predict modules)
+            if hasattr(optimized_module, "demo_manager"):
+                # Clear existing demos and add new ones
+                demo_manager = optimized_module.demo_manager
+                demo_manager.clear()  # type: ignore[attr-defined]
+                for demo in selected_demos:
+                    demo_manager.add({"inputs": demo.inputs, "outputs": demo.outputs})  # type: ignore[attr-defined]
 
-        return OptimizationResult(
-            optimized_module=optimized_module,
-            improvement=final_score - baseline_score,
-            iterations=1,  # Single pass
-            best_score=final_score,
-            optimization_time=time.time() - start_time,
-            metadata={
-                "num_demos": len(selected_demos),
-                "demo_scores": [d.score for d in selected_demos],
-                "baseline_score": baseline_score,
-                "selection_strategy": self.demo_selector.__class__.__name__,
-            },
-        )
+            # Also add demonstrations as a parameter for tracking
+            demo_param = Parameter(
+                value=[d.to_dict() for d in selected_demos],
+                learnable=True,
+                metadata={
+                    "type": "demonstrations",
+                    "source": "labeled",
+                    "selection_strategy": self.demo_selector.__class__.__name__,
+                },
+            )
+            optimized_module.parameters["demonstrations"] = demo_param
+
+            # Evaluate if validation set provided
+            final_score = 0.0
+            eval_traces = []
+            if validation_set:
+                final_score, eval_traces = await self.evaluate(optimized_module, validation_set)
+
+            # Also evaluate baseline for improvement calculation
+            baseline_score = 0.0
+            if validation_set:
+                baseline_score, _ = await self.evaluate(module, validation_set)
+
+            result = OptimizationResult(
+                optimized_module=optimized_module,
+                improvement=final_score - baseline_score,
+                iterations=1,  # Single pass
+                best_score=final_score,
+                optimization_time=time.time() - start_time,
+                metadata={
+                    "num_demos": len(selected_demos),
+                    "demo_scores": [d.score for d in selected_demos],
+                    "baseline_score": baseline_score,
+                    "selection_strategy": self.demo_selector.__class__.__name__,
+                },
+            )
+
+            # Emit optimization end event
+            if self._check_callbacks_enabled():
+                from ..core.callbacks import OptimizationEndEvent
+
+                await self._emit_async(
+                    OptimizationEndEvent(
+                        context=context,
+                        optimizer=self,
+                        result=result,
+                        success=True,
+                        duration=(datetime.now() - self._start_time).total_seconds(),
+                    )
+                )
+
+            return result
+
+        except Exception as e:
+            # Emit optimization end event with failure
+            if self._check_callbacks_enabled():
+                from ..core.callbacks import OptimizationEndEvent
+
+                await self._emit_async(
+                    OptimizationEndEvent(
+                        context=context,
+                        optimizer=self,
+                        result=None,
+                        success=False,
+                        duration=(datetime.now() - self._start_time).total_seconds(),
+                        error=e,
+                    )
+                )
+            raise
 
 
 __all__ = ["LabeledFewShot"]

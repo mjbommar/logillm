@@ -1,230 +1,231 @@
 #!/usr/bin/env python3
-"""Few-Shot Learning with LogiLLM - Detailed Tutorial.
+"""Few-Shot Learning with LogiLLM.
 
-Quick alternatives:
-- examples/quickstart.py - 30-second intro (25 lines)
-- examples/quick_start.py - Minimal few-shot demo (45 lines)  
-- examples/signatures_demo.py - Signature features (70 lines)
-- examples/minimal_math.py - Math solving example (55 lines)
+This comprehensive example demonstrates how few-shot learning improves model performance
+using both string and class-based signatures. We use a smaller model (gpt-4.1-nano) to
+show realistic improvement from baseline performance.
 
-This detailed tutorial demonstrates LogiLLM's bootstrap few-shot capabilities:
-1. Starting with a basic module with no examples
-2. Using bootstrap learning to automatically generate helpful examples
-3. Comparing performance before and after adding examples
-4. Understanding how few-shot examples improve results
-
-Few-shot learning means giving the LLM examples of correct input-output pairs
-to help it understand what you want. LogiLLM can automatically generate
-these examples for you.
-
-Prerequisites:
-- OpenAI API key: export OPENAI_API_KEY=your_key
-- Install LogiLLM with OpenAI support: pip install logillm[openai]
+Key demonstrations:
+1. String signature for simple classification
+2. Class-based signature for structured outputs
+3. Real performance improvement without tricks
+4. Automatic example selection via bootstrap learning
 """
 
 import asyncio
 import os
 
-from logillm.core.optimizers import AccuracyMetric, Metric
 from logillm.core.predict import Predict
+from logillm.core.signatures import InputField, OutputField, Signature
 from logillm.optimizers import BootstrapFewShot
 from logillm.providers import create_provider, register_provider
 
 
-class NormalizedIntentMetric(Metric):
-    """Metric that normalizes intent names before comparison."""
+class TechnicalTermClassifier(Signature):
+    """Classify technical terms into specific categories."""
 
-    def __init__(self, key: str = "intent"):
-        self.key = key
+    term: str = InputField(desc="Technical term to classify")
+    category: str = OutputField(desc="Category: algorithm, datastructure, pattern, or protocol")
 
-    def normalize_intent(self, intent: str) -> str:
-        """Normalize intent to standard form."""
-        intent = intent.lower().strip()
-        # Map variations to standard intents
-        if any(word in intent for word in ["cancel", "close", "terminate"]):
-            return "cancel"
-        elif any(word in intent for word in ["billing", "invoice", "receipt", "payment"]):
-            return "billing"
-        elif any(word in intent for word in ["support", "help", "login", "problem", "issue"]):
-            return "support"
-        elif any(word in intent for word in ["thank", "gratitude", "appreciate"]):
-            return "thanks"
-        elif any(word in intent for word in ["ship", "order", "delivery", "package", "tracking"]):
-            return "shipping"
-        elif any(word in intent for word in ["upgrade", "premium", "plan"]):
-            return "upgrade"
-        return intent
 
-    def __call__(self, prediction: dict, reference: dict, **kwargs) -> float:
-        """Check if intents match after normalization."""
-        pred_intent = self.normalize_intent(prediction.get(self.key, ""))
-        ref_intent = self.normalize_intent(reference.get(self.key, ""))
-        return 1.0 if pred_intent == ref_intent else 0.0
+async def demo_string_signature():
+    """Demonstrate few-shot learning with simple string signatures."""
+    print("\n📝 PART 1: String Signature Demo")
+    print("=" * 45)
 
-    def name(self) -> str:
-        return f"normalized_{self.key}"
+    # Simple string signature - great for quick prototyping
+    classifier = Predict("language -> paradigm")
+
+    # Test cases
+    test_langs = ["python", "haskell", "java", "prolog"]
+    expected = ["multiparadigm", "functional", "objectoriented", "logic"]
+
+    # Baseline performance
+    print("\nWithout examples:")
+    baseline_correct = 0
+    for lang, exp in zip(test_langs, expected):
+        result = await classifier(language=lang)
+        pred = result.outputs["paradigm"].replace(" ", "").replace("-", "").lower()
+        exp_normalized = exp.replace(" ", "").replace("-", "").lower()
+        correct = pred == exp_normalized
+        baseline_correct += correct
+        print(f"  {lang:8} → {result.outputs['paradigm']:20} {'✓' if correct else '✗'}")
+
+    # Training data
+    training = [
+        {"inputs": {"language": "c"}, "outputs": {"paradigm": "procedural"}},
+        {"inputs": {"language": "lisp"}, "outputs": {"paradigm": "functional"}},
+        {"inputs": {"language": "smalltalk"}, "outputs": {"paradigm": "objectoriented"}},
+        {"inputs": {"language": "erlang"}, "outputs": {"paradigm": "functional"}},
+    ]
+
+    # Optimize with few-shot
+    optimizer = BootstrapFewShot(
+        metric=lambda p, r: 1.0 if p.get("paradigm") == r.get("paradigm") else 0.0, max_demos=2
+    )
+    result = await optimizer.optimize(classifier, dataset=training)
+    improved = result.optimized_module
+
+    # Test with examples
+    print("\nWith examples:")
+    improved_correct = 0
+    for lang, exp in zip(test_langs, expected):
+        result = await improved(language=lang)
+        pred = result.outputs["paradigm"].replace(" ", "").replace("-", "").lower()
+        exp_normalized = exp.replace(" ", "").replace("-", "").lower()
+        correct = pred == exp_normalized
+        improved_correct += correct
+        print(f"  {lang:8} → {result.outputs['paradigm']:20} {'✓' if correct else '✗'}")
+
+    print(
+        f"\nImprovement: {baseline_correct}/{len(test_langs)} → {improved_correct}/{len(test_langs)} "
+        f"({(improved_correct - baseline_correct) / len(test_langs):+.0%})"
+    )
+
+
+async def demo_class_signature():
+    """Demonstrate few-shot learning with class-based signatures."""
+    print("\n📚 PART 2: Class-Based Signature Demo")
+    print("=" * 45)
+
+    # Create classifier with structured signature
+    classifier = Predict(TechnicalTermClassifier)
+
+    # Test cases - exact answers required
+    test_cases = [
+        ("quicksort", "algorithm"),
+        ("hashmap", "datastructure"),
+        ("singleton", "pattern"),
+        ("http", "protocol"),
+        ("bfs", "algorithm"),
+        ("linkedlist", "datastructure"),
+    ]
+
+    # Baseline performance
+    print("\nWithout examples:")
+
+    baseline_correct = 0
+    for term, expected in test_cases:
+        result = await classifier(term=term)
+        predicted = result.outputs.get("category", "").lower().strip()
+
+        is_correct = predicted == expected
+        if is_correct:
+            baseline_correct += 1
+
+        symbol = "✓" if is_correct else "✗"
+        print(f"  {symbol} '{term}' → {predicted:15} (expected: {expected})")
+
+    baseline_accuracy = baseline_correct / len(test_cases)
+    print(f"\nBaseline: {baseline_accuracy:.1%} ({baseline_correct}/{len(test_cases)})")
+
+    # Training data
+    training_data = [
+        {"inputs": {"term": "dijkstra"}, "outputs": {"category": "algorithm"}},
+        {"inputs": {"term": "stack"}, "outputs": {"category": "datastructure"}},
+        {"inputs": {"term": "observer"}, "outputs": {"category": "pattern"}},
+        {"inputs": {"term": "tcp"}, "outputs": {"category": "protocol"}},
+        {"inputs": {"term": "mergesort"}, "outputs": {"category": "algorithm"}},
+        {"inputs": {"term": "queue"}, "outputs": {"category": "datastructure"}},
+        {"inputs": {"term": "factory"}, "outputs": {"category": "pattern"}},
+        {"inputs": {"term": "smtp"}, "outputs": {"category": "protocol"}},
+    ]
+
+    # Optimize with few-shot learning
+    print("\n🎓 Training with few-shot examples...")
+
+    def normalize_category(text):
+        """Normalize category text for matching."""
+        # Remove spaces, hyphens, and convert to lowercase
+        return text.lower().replace(" ", "").replace("-", "")
+
+    def exact_match_metric(pred, ref):
+        """Simple exact match metric with normalization."""
+        pred_norm = normalize_category(pred.get("category", ""))
+        ref_norm = normalize_category(ref.get("category", ""))
+        return 1.0 if pred_norm == ref_norm else 0.0
+
+    optimizer = BootstrapFewShot(
+        metric=exact_match_metric,
+        max_demos=3,  # Use only 3 examples
+        max_rounds=1,
+    )
+
+    result = await optimizer.optimize(module=classifier, dataset=training_data)
+    improved_classifier = result.optimized_module
+
+    # Test with examples
+    print("\nWith examples:")
+
+    improved_correct = 0
+    for term, expected in test_cases:
+        result = await improved_classifier(term=term)
+        predicted = result.outputs.get("category", "").lower().strip()
+
+        # Normalize for comparison
+        pred_norm = predicted.replace(" ", "").replace("-", "")
+        exp_norm = expected.replace(" ", "").replace("-", "")
+
+        is_correct = pred_norm == exp_norm
+        if is_correct:
+            improved_correct += 1
+
+        symbol = "✓" if is_correct else "✗"
+        print(f"  {symbol} '{term}' → {predicted:15} (expected: {expected})")
+
+    improved_accuracy = improved_correct / len(test_cases)
+    improvement = improved_accuracy - baseline_accuracy
+
+    # Show results
+    print(
+        f"\nImprovement: {baseline_correct}/{len(test_cases)} → {improved_correct}/{len(test_cases)} "
+        f"({improvement:+.1%})"
+    )
+
+    # Show which examples were selected
+    if improved_classifier.demo_manager.demos:
+        print(f"\n📚 Selected Examples ({len(improved_classifier.demo_manager.demos)}):")
+        for i, demo in enumerate(improved_classifier.demo_manager.demos, 1):
+            term = demo.inputs.get("term", "")
+            category = demo.outputs.get("category", "")
+            print(f"  {i}. '{term}' → {category}")
 
 
 async def main():
-    """Demonstrate few-shot learning."""
+    """Run comprehensive few-shot learning demonstration."""
+
     # Check for API key
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
+    if not os.getenv("OPENAI_API_KEY"):
         print("Please set your OpenAI API key:")
         print("export OPENAI_API_KEY=your_key")
         return
 
-    print("=== Few-Shot Learning with LogiLLM ===")
+    print("=" * 50)
+    print("🚀 FEW-SHOT LEARNING WITH LOGILLM")
+    print("=" * 50)
 
-    try:
-        # Step 1: Set up provider
-        provider = create_provider("openai", model="gpt-4.1")
-        register_provider(provider, set_default=True)
+    # Use smaller model for realistic baseline
+    provider = create_provider("openai", model="gpt-4.1-nano")
+    register_provider(provider, set_default=True)
 
-        # Step 2: Create a basic module without detailed instructions
-        # This will struggle without examples
-        email_classifier = Predict("email -> intent", provider=provider)
+    # Demo 1: Simple string signatures
+    await demo_string_signature()
 
-        print("📧 Email Intent Classification")
-        print("=" * 35)
+    # Demo 2: Structured class signatures
+    await demo_class_signature()
 
-        # Test cases to evaluate performance
-        test_emails = [
-            "Hi, I'd like to cancel my subscription effective immediately.",
-            "Could you please send me a copy of my recent invoice?",
-            "I'm having trouble logging into my account. The password reset isn't working.",
-            "Thank you so much for the quick response! You solved my problem perfectly.",
-            "When will my order ship? I placed it 3 days ago.",
-            "I want to upgrade my plan to include more storage space.",
-        ]
-
-        expected_intents = ["cancel", "billing", "support", "thanks", "shipping", "upgrade"]
-
-        # Step 3: Test baseline performance (no examples)
-        print("\n🧪 Testing WITHOUT few-shot examples:")
-        print("-" * 40)
-
-        baseline_correct = 0
-        baseline_predictions = []
-        normalizer = NormalizedIntentMetric()
-
-        for email, expected in zip(test_emails, expected_intents):
-            result = await email_classifier(email=email)
-            predicted_raw = result.outputs.get("intent", "")
-            predicted = normalizer.normalize_intent(predicted_raw)
-            baseline_predictions.append(predicted)
-                
-            is_correct = predicted == expected
-            if is_correct:
-                baseline_correct += 1
-
-            status = "✓" if is_correct else "✗"
-            print(f"  {status} '{email[:50]}...' → {predicted_raw} (expected: {expected})")
-
-        baseline_accuracy = baseline_correct / len(test_emails)
-        print(f"\n📊 Baseline Accuracy: {baseline_accuracy:.1%}")
-
-        # Step 4: Prepare training data for bootstrap learning
-        print("\n🎓 Training few-shot examples...")
-
-        training_data = [
-            {"inputs": {"email": "Please cancel my account"}, "outputs": {"intent": "cancel"}},
-            {
-                "inputs": {"email": "I need my receipt from last month"},
-                "outputs": {"intent": "billing"},
-            },
-            {"inputs": {"email": "Help! I can't log in"}, "outputs": {"intent": "support"}},
-            {"inputs": {"email": "Thanks for fixing the bug!"}, "outputs": {"intent": "thanks"}},
-            {"inputs": {"email": "Where is my package?"}, "outputs": {"intent": "shipping"}},
-            {"inputs": {"email": "I want to upgrade to premium"}, "outputs": {"intent": "upgrade"}},
-            {"inputs": {"email": "Close my subscription please"}, "outputs": {"intent": "cancel"}},
-            {
-                "inputs": {"email": "Send me the invoice for order #123"},
-                "outputs": {"intent": "billing"},
-            },
-            {"inputs": {"email": "The app keeps crashing"}, "outputs": {"intent": "support"}},
-            {"inputs": {"email": "Perfect solution, thank you!"}, "outputs": {"intent": "thanks"}},
-        ]
-
-        # Step 5: Use bootstrap few-shot to improve the module
-        # Use normalized matching since model outputs vary
-        metric = NormalizedIntentMetric(key="intent")
-
-        bootstrap = BootstrapFewShot(
-            metric=metric,
-            max_bootstrapped_demos=4,  # Add up to 4 helpful examples
-        )
-
-        print("• Analyzing training data...")
-        print("• Generating helpful examples...")
-        print("• Testing example combinations...")
-
-        optimized_result = await bootstrap.optimize(module=email_classifier, dataset=training_data)
-
-        improved_classifier = optimized_result.optimized_module
-
-        # Step 6: Test performance with few-shot examples
-        print("\n🧪 Testing WITH few-shot examples:")
-        print("-" * 38)
-
-        improved_correct = 0
-        improved_predictions = []
-
-        for email, expected in zip(test_emails, expected_intents):
-            result = await improved_classifier(email=email)
-            predicted_raw = result.outputs.get("intent", "")
-            predicted = normalizer.normalize_intent(predicted_raw)
-            improved_predictions.append(predicted)
-
-            is_correct = predicted == expected
-            if is_correct:
-                improved_correct += 1
-
-            status = "✓" if is_correct else "✗"
-            print(f"  {status} '{email[:50]}...' → {predicted_raw} (expected: {expected})")
-
-        improved_accuracy = improved_correct / len(test_emails)
-        improvement = improved_accuracy - baseline_accuracy
-
-        print("\n📊 Results Summary:")
-        print(f"Without examples: {baseline_accuracy:.1%}")
-        print(f"With examples:    {improved_accuracy:.1%}")
-        print(f"Improvement:      {improvement:+.1%}")
-
-        # Step 7: Show what examples were added
-        if hasattr(improved_classifier, "demo_manager") and improved_classifier.demo_manager:
-            examples = improved_classifier.demo_manager.demos
-            print(f"\n📚 Examples Added ({len(examples)} total):")
-            for i, demo in enumerate(examples, 1):
-                input_text = demo.inputs.get("email", "")[:30]
-                output_text = demo.outputs.get("intent", "")
-                print(f"  {i}. '{input_text}...' → {output_text}")
-
-        # Step 8: Demonstrate with new test cases
-        print("\n🔮 Testing on new emails:")
-        print("-" * 25)
-
-        new_test_cases = [
-            "I'd like to return this item for a full refund",
-            "Could you help me reset my password?",
-            "This is exactly what I needed, amazing work!",
-        ]
-
-        for email in new_test_cases:
-            result = await improved_classifier(email=email)
-            intent = result.outputs.get("intent", "")
-            print(f"'{email}' → {intent}")
-
-        print("\n✅ Few-shot learning improves accuracy by teaching the model!")
-        print("• Examples show the model what you want")
-        print("• Bootstrap learning finds the most helpful examples automatically")
-        print("• Performance typically improves significantly")
-
-    except ImportError:
-        print("OpenAI provider not installed. Run:")
-        print("pip install logillm[openai]")
-    except Exception as e:
-        print(f"Error: {e}")
+    # Summary
+    print("\n" + "=" * 50)
+    print("✨ KEY TAKEAWAYS")
+    print("=" * 50)
+    print("""
+1. Few-shot learning dramatically improves accuracy on specific tasks
+2. String signatures are great for quick prototyping
+3. Class signatures provide better structure and validation
+4. Even 2-3 examples can provide significant improvement
+5. Bootstrap learning automatically selects the best examples
+6. Using smaller models (gpt-4.1-nano) shows more realistic improvements
+""")
 
 
 if __name__ == "__main__":

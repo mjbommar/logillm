@@ -13,6 +13,7 @@ from typing import Any, Callable, TypeVar
 
 from ..exceptions import ConfigurationError, ModuleError
 from ..protocols.runtime import Batchable, ExecutableComponent, Optimizable, Serializable
+from .callback_mixin import CallbackMixin
 from .signatures import BaseSignature, Signature, parse_signature_string
 from .types import (
     Configuration,
@@ -46,7 +47,7 @@ class Parameter:
         pass
 
 
-class Module(ABC, ExecutableComponent, Optimizable, Batchable, Serializable):
+class Module(ABC, CallbackMixin, ExecutableComponent, Optimizable, Batchable, Serializable):
     """Abstract base class for all modules."""
 
     def __init__(
@@ -57,6 +58,9 @@ class Module(ABC, ExecutableComponent, Optimizable, Batchable, Serializable):
         metadata: Metadata | None = None,
         debug: bool | None = None,
     ) -> None:
+        # Initialize the mixin first
+        CallbackMixin.__init__(self)
+
         self.signature = self._resolve_signature(signature)
         self.config = config or {}
         self.metadata = metadata or {}
@@ -112,6 +116,18 @@ class Module(ABC, ExecutableComponent, Optimizable, Batchable, Serializable):
         """Call interface - wraps forward with tracing and validation."""
         start_time = time.time()
 
+        # Get or create callback context
+        from .callback_mixin import get_current_context
+
+        parent_context = get_current_context()
+        context = self._create_context(parent_context)
+
+        # Emit module start event
+        if self._check_callbacks_enabled():
+            from .callbacks import ModuleStartEvent
+
+            await self._emit_async(ModuleStartEvent(context=context, module=self, inputs=inputs))
+
         try:
             # Validate inputs if signature is available
             if self.signature:
@@ -124,8 +140,9 @@ class Module(ABC, ExecutableComponent, Optimizable, Batchable, Serializable):
             else:
                 validated_inputs = inputs
 
-            # Execute forward pass
-            prediction = await self.forward(**validated_inputs)
+            # Execute forward pass with context
+            with self._with_callback_context(context):
+                prediction = await self.forward(**validated_inputs)
 
             # Validate outputs if signature is available
             if self.signature and prediction.outputs:
@@ -151,6 +168,22 @@ class Module(ABC, ExecutableComponent, Optimizable, Batchable, Serializable):
                 )
                 self.trace.add_step(step)
 
+            # Emit module end event
+            if self._check_callbacks_enabled():
+                duration = time.time() - start_time
+                from .callbacks import ModuleEndEvent
+
+                await self._emit_async(
+                    ModuleEndEvent(
+                        context=context,
+                        module=self,
+                        outputs=prediction.outputs,
+                        prediction=prediction,
+                        success=True,
+                        duration=duration,
+                    )
+                )
+
             return prediction
 
         except Exception as e:
@@ -167,6 +200,16 @@ class Module(ABC, ExecutableComponent, Optimizable, Batchable, Serializable):
                     metadata={"error": str(e)},
                 )
                 self.trace.add_step(step)
+
+            # Emit error event
+            if self._check_callbacks_enabled():
+                from .callbacks import ErrorEvent
+
+                await self._emit_async(
+                    ErrorEvent(
+                        context=context, error=e, module=self, stage="forward", recoverable=False
+                    )
+                )
 
             # Wrap in ModuleError with context
             raise ModuleError(

@@ -35,7 +35,7 @@ class GoogleProvider(Provider):
             "Install it with: pip install logillm[google]"
         )
 
-    async def complete(self, messages: list[dict[str, Any]], **kwargs: Any) -> Completion:
+    async def _complete_impl(self, messages: list[dict[str, Any]], **kwargs: Any) -> Completion:
         """Complete a conversation (not implemented).
 
         Args:

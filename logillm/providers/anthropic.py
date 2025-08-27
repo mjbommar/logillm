@@ -111,7 +111,7 @@ class AnthropicProvider(Provider):
             api_key=api_key, base_url=base_url, timeout=self.timeout, max_retries=0
         )
 
-    async def complete(self, messages: list[dict[str, Any]], **kwargs: Any) -> Completion:
+    async def _complete_impl(self, messages: list[dict[str, Any]], **kwargs: Any) -> Completion:
         """Generate completion using Anthropic API.
 
         Args:

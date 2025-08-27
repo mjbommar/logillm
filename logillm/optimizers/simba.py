@@ -654,7 +654,9 @@ class SIMBA(PromptOptimizer):
                 "worse_reward_value": float(bad["score"])
                 if isinstance(bad["score"], (int, float))
                 else 0.0,
-                "better_reward_value": float(good["score"]),
+                "better_reward_value": float(good["score"])
+                if isinstance(good["score"], (int, float))
+                else 1.0,
                 "module_names": module_names,
             }
 
@@ -698,7 +700,10 @@ class SIMBA(PromptOptimizer):
 
                     # Append the new rule
                     current_instruction = predictor.parameters["instruction"].value
-                    updated_instruction = current_instruction + "\n\n" + rule_text
+                    if current_instruction is None:
+                        updated_instruction = rule_text
+                    else:
+                        updated_instruction = current_instruction + "\n\n" + rule_text
                     predictor.parameters["instruction"].value = updated_instruction
                     rules_applied += 1
 

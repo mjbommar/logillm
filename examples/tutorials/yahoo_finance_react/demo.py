@@ -13,20 +13,20 @@ def _parse_json_list(text: str) -> list[str]:
     """Helper to parse JSON list with fallbacks."""
     if not text:
         return []
-        
+
     text = text.strip()
-    
+
     # Try JSON array format
-    if text.startswith('[') and text.endswith(']'):
+    if text.startswith("[") and text.endswith("]"):
         try:
             return json.loads(text)
         except json.JSONDecodeError:
             pass
-    
+
     # Fallback: split by comma
-    if ',' in text:
-        return [item.strip() for item in text.split(',')]
-    
+    if "," in text:
+        return [item.strip() for item in text.split(",")]
+
     return [text] if text else []
 
 
@@ -85,7 +85,7 @@ async def demo_financial_analysis() -> None:
                 elif "comparison_analysis" in results:
                     comparison = results["comparison_analysis"]
                     print(f"\n📝 Comparison: {comparison.comparison_summary}")
-                    
+
                     # Parse rankings string to list
                     parsed_rankings = _parse_json_list(comparison.rankings)
                     print(f"\n🏆 Rankings: {', '.join(parsed_rankings[:2])}")

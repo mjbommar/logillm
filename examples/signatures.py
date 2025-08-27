@@ -60,7 +60,7 @@ async def main():
 
     try:
         # Set up provider
-        provider = create_provider("openai", model="gpt-4.1")
+        provider = create_provider("openai", model="gpt-4.1-mini")
         register_provider(provider, set_default=True)
 
         # 1. Simple string signature - great for quick prototyping

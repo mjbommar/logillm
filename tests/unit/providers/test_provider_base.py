@@ -27,7 +27,8 @@ class TestProviderBase:
                 self.name = "test"
                 self.model = "test-model"
 
-            async def complete(self, messages, **kwargs):
+            async def _complete_impl(self, messages, **kwargs):
+                """Internal completion implementation."""
                 return Completion(
                     text="test response",
                     usage=Usage(
@@ -36,6 +37,9 @@ class TestProviderBase:
                     provider="test",
                     model="test-model",
                 )
+
+            async def complete(self, messages, **kwargs):
+                return await self._complete_impl(messages, **kwargs)
 
             async def embed(self, texts, **kwargs):
                 return [[0.1, 0.2, 0.3] for _ in texts]
@@ -196,8 +200,12 @@ class TestProviderErrorHandling:
                 self.name = "failing"
                 self.model = "failing-model"
 
-            async def complete(self, messages, **kwargs):
+            async def _complete_impl(self, messages, **kwargs):
+                """Internal completion that fails."""
                 raise Exception("Simulated API failure")
+
+            async def complete(self, messages, **kwargs):
+                return await self._complete_impl(messages, **kwargs)
 
             async def embed(self, texts, **kwargs):
                 return [[0.1] for _ in texts]

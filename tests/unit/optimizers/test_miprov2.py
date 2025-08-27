@@ -13,21 +13,21 @@ from logillm.optimizers.proposers.base import InstructionProposal, ProposalStrat
 @pytest.fixture
 def mock_module():
     """Create a mock module for testing."""
-    module = MagicMock(spec=Predict)
-    module.signature = MagicMock()
-    module.signature.signature_str = "question -> answer"
-    module.signature.input_fields = {"question": MagicMock()}
-    module.signature.output_fields = {"answer": MagicMock()}
-
     # Mock forward method
     async def mock_forward(**kwargs):
         return Prediction(success=True, outputs={"answer": "test answer"}, metadata={})
 
+    # Create module as AsyncMock that can be called directly
+    module = AsyncMock(spec=Predict, side_effect=mock_forward)
+    module.signature = MagicMock()
+    module.signature.signature_str = "question -> answer"
+    module.signature.input_fields = {"question": MagicMock()}
+    module.signature.output_fields = {"answer": MagicMock()}
     module.forward = AsyncMock(side_effect=mock_forward)
 
     # Mock deepcopy to return a module with the same forward method
     def mock_deepcopy():
-        copy = MagicMock(spec=Predict)
+        copy = AsyncMock(spec=Predict, side_effect=mock_forward)
         copy.signature = module.signature
         copy.forward = AsyncMock(side_effect=mock_forward)
         copy.deepcopy = mock_deepcopy
@@ -215,7 +215,8 @@ class TestMIPROv2Optimizer:
 
         # Should call metric for each sample
         assert isinstance(score, float)
-        assert mock_module.forward.call_count == len(sample_dataset)
+        # Module should be called directly (not forward) after callback changes
+        assert mock_module.call_count == len(sample_dataset)
 
     @pytest.mark.asyncio
     async def test_optimize_full_pipeline(self, mock_module, sample_dataset, mock_metric):

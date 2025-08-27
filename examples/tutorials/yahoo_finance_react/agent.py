@@ -25,43 +25,43 @@ class FinancialReActAgent(Module):
             "compare_stocks": compare_stocks,
             "get_stock_news": get_stock_news,
         }
-    
+
     def _parse_json_list(self, text: str) -> list[str]:
         """Parse JSON array from text, with fallback to splitting."""
         if not text:
             return []
-            
+
         text = text.strip()
-        
+
         # Try JSON array format
-        if text.startswith('[') and text.endswith(']'):
+        if text.startswith("[") and text.endswith("]"):
             try:
                 return json.loads(text)
             except json.JSONDecodeError:
                 pass
-        
+
         # Fallback: split by comma or newlines
-        if ',' in text:
-            return [item.strip() for item in text.split(',')]
-        elif '\n' in text:
-            return [item.strip() for item in text.split('\n') if item.strip()]
-        
+        if "," in text:
+            return [item.strip() for item in text.split(",")]
+        elif "\n" in text:
+            return [item.strip() for item in text.split("\n") if item.strip()]
+
         return [text] if text else []
-    
+
     def _parse_json_dict(self, text: str) -> dict[str, float]:
         """Parse JSON object from text."""
         if not text:
             return {}
-            
+
         text = text.strip()
-        
+
         # Try JSON object format
-        if text.startswith('{') and text.endswith('}'):
+        if text.startswith("{") and text.endswith("}"):
             try:
                 return json.loads(text)
             except json.JSONDecodeError:
                 pass
-        
+
         # Fallback: return empty dict
         return {}
 

@@ -67,12 +67,14 @@ async def test_memory_enhanced_react():
             )
 
             # Debug: print the actual result structure
-            print(f"🔍 Agent result keys: {list(result.keys()) if isinstance(result, dict) else type(result)}")
-            
+            print(
+                f"🔍 Agent result keys: {list(result.keys()) if isinstance(result, dict) else type(result)}"
+            )
+
             if "error" in result:
                 print(f"❌ Agent error: {result['error']}")
                 print(f"🔍 Full error result: {result}")
-            
+
             assert "response" in result, "Missing response in agent output"
             assert "memories_stored" in result, "Missing memories_stored in agent output"
             print("✅ Agent conversation processing working")

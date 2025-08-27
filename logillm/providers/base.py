@@ -9,6 +9,7 @@ from abc import abstractmethod
 from collections.abc import AsyncIterator
 from typing import Any
 
+from ..core.callback_mixin import CallbackMixin, get_current_context
 from ..core.parameters import (
     STANDARD_PARAM_SPECS,
     STANDARD_PRESETS,
@@ -38,7 +39,7 @@ class TimeoutError(ProviderError):
     pass
 
 
-class Provider(ParameterProvider):
+class Provider(CallbackMixin, ParameterProvider):
     """Abstract base class for LLM providers.
 
     All provider implementations must inherit from this class and implement
@@ -73,6 +74,9 @@ class Provider(ParameterProvider):
             timeout: Request timeout in seconds
             **kwargs: Additional provider-specific parameters
         """
+        # Initialize the mixin first
+        CallbackMixin.__init__(self)
+
         # Handle both provider_name and name for flexibility
         self.name = provider_name or name or "unknown"
         self.model = model or "unknown"
@@ -89,9 +93,74 @@ class Provider(ParameterProvider):
         # Store additional provider-specific parameters
         self.provider_params = kwargs
 
-    @abstractmethod
+        # Also store common hyperparameters in config for logging
+        for key in ["temperature", "top_p", "max_tokens", "frequency_penalty", "presence_penalty"]:
+            if key in kwargs:
+                self.config[key] = kwargs[key]
+
     async def complete(self, messages: list[dict[str, Any]], **kwargs: Any) -> Completion:
-        """Generate completion from messages.
+        """Generate completion from messages with callback support.
+
+        Args:
+            messages: List of message dictionaries with 'role' and 'content'
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            Completion object
+        """
+        import time
+
+        start_time = time.time()
+
+        # Get or create callback context
+        parent_context = get_current_context()
+        context = self._create_context(parent_context)
+
+        # Emit request event
+        if self._check_callbacks_enabled():
+            from ..core.callbacks import ProviderRequestEvent
+
+            await self._emit_async(
+                ProviderRequestEvent(
+                    context=context, provider=self, messages=messages, parameters=kwargs
+                )
+            )
+
+        try:
+            # Execute with context
+            with self._with_callback_context(context):
+                response = await self._complete_impl(messages, **kwargs)
+
+            # Emit response event
+            if self._check_callbacks_enabled():
+                from ..core.callbacks import ProviderResponseEvent
+
+                await self._emit_async(
+                    ProviderResponseEvent(
+                        context=context,
+                        provider=self,
+                        request_messages=messages,
+                        response=response,
+                        usage=response.usage if hasattr(response, "usage") else None,
+                        duration=time.time() - start_time,
+                    )
+                )
+
+            return response
+
+        except Exception as e:
+            # Emit error event
+            if self._check_callbacks_enabled():
+                from ..core.callbacks import ProviderErrorEvent
+
+                await self._emit_async(
+                    ProviderErrorEvent(context=context, provider=self, error=e, messages=messages)
+                )
+            raise
+
+    @abstractmethod
+    async def _complete_impl(self, messages: list[dict[str, Any]], **kwargs: Any) -> Completion:
+        """Actual implementation of completion generation.
 
         Args:
             messages: List of message dictionaries with 'role' and 'content'

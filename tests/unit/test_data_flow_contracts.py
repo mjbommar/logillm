@@ -7,8 +7,8 @@ import pytest
 
 from logillm.core.modules import Parameter
 from logillm.core.predict import Predict
-from logillm.optimizers import BootstrapFewShot
 from logillm.optimizers.base import Demonstration
+from logillm.optimizers.bootstrap_fewshot import BootstrapFewShot
 
 
 class TestDataFlowContracts:

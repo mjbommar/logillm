@@ -435,8 +435,8 @@ class MIPROv2Optimizer(PromptOptimizer):
 
         for example in dataset:
             try:
-                # Run module
-                prediction = await module.forward(**example["inputs"])
+                # Run module (using __call__ to ensure callbacks fire)
+                prediction = await module(**example["inputs"])
 
                 if prediction.success:
                     # Evaluate with metric

@@ -7,6 +7,12 @@ This module provides a flexible callback system that supports:
 - Both async and sync callback support
 - Thread-safe callback management
 - Built-in useful callbacks (logging, metrics, progress)
+
+The callback system is integrated throughout LogiLLM:
+- Modules emit start/end events during execution
+- Optimizers emit optimization and evaluation events
+- Providers emit request/response events
+- Full context propagation for nested operations
 """
 
 from __future__ import annotations
@@ -42,8 +48,10 @@ class CallbackType(Enum):
     ERROR = "error"
     PROVIDER_REQUEST = "provider_request"
     PROVIDER_RESPONSE = "provider_response"
+    PROVIDER_ERROR = "provider_error"
     EVALUATION_START = "evaluation_start"
     EVALUATION_END = "evaluation_end"
+    HYPERPARAMETER_UPDATE = "hyperparameter_update"
 
 
 class Priority(Enum):
@@ -152,6 +160,7 @@ class OptimizationEndEvent(CallbackEvent):
         result: Any,
         success: bool = True,
         duration: float | None = None,
+        error: Exception | None = None,
         timestamp: datetime | None = None,
     ):
         """Initialize optimization end event."""
@@ -160,6 +169,7 @@ class OptimizationEndEvent(CallbackEvent):
         self.result = result
         self.success = success
         self.duration = duration
+        self.error = error
 
 
 class ErrorEvent(CallbackEvent):
@@ -222,6 +232,82 @@ class ProviderResponseEvent(CallbackEvent):
         self.duration = duration
 
 
+class ProviderErrorEvent(CallbackEvent):
+    """Event fired when provider encounters an error."""
+
+    def __init__(
+        self,
+        context: CallbackContext,
+        provider: Any,
+        error: Exception,
+        messages: list[dict[str, str]] | None = None,
+        timestamp: datetime | None = None,
+    ):
+        """Initialize provider error event."""
+        super().__init__(context, timestamp)
+        self.provider = provider
+        self.error = error
+        self.messages = messages or []
+
+
+class EvaluationStartEvent(CallbackEvent):
+    """Event fired when evaluation starts."""
+
+    def __init__(
+        self,
+        context: CallbackContext,
+        optimizer: Any,
+        module: Any,
+        dataset: list[dict[str, Any]],
+        timestamp: datetime | None = None,
+    ):
+        """Initialize evaluation start event."""
+        super().__init__(context, timestamp)
+        self.optimizer = optimizer
+        self.module = module
+        self.dataset = dataset
+
+
+class EvaluationEndEvent(CallbackEvent):
+    """Event fired when evaluation ends."""
+
+    def __init__(
+        self,
+        context: CallbackContext,
+        optimizer: Any,
+        module: Any,
+        score: float,
+        duration: float | None = None,
+        timestamp: datetime | None = None,
+    ):
+        """Initialize evaluation end event."""
+        super().__init__(context, timestamp)
+        self.optimizer = optimizer
+        self.module = module
+        self.score = score
+        self.duration = duration
+
+
+class HyperparameterUpdateEvent(CallbackEvent):
+    """Event fired when hyperparameters are updated."""
+
+    def __init__(
+        self,
+        context: CallbackContext,
+        optimizer: Any,
+        module: Any,
+        parameters: dict[str, Any],
+        iteration: int,
+        timestamp: datetime | None = None,
+    ):
+        """Initialize hyperparameter update event."""
+        super().__init__(context, timestamp)
+        self.optimizer = optimizer
+        self.module = module
+        self.parameters = parameters
+        self.iteration = iteration
+
+
 # Union type for all events
 CallbackEventType = Union[
     ModuleStartEvent,
@@ -231,6 +317,10 @@ CallbackEventType = Union[
     ErrorEvent,
     ProviderRequestEvent,
     ProviderResponseEvent,
+    ProviderErrorEvent,
+    EvaluationStartEvent,
+    EvaluationEndEvent,
+    HyperparameterUpdateEvent,
 ]
 
 
@@ -267,6 +357,22 @@ class BaseCallback(Protocol):
 
     def on_provider_response(self, event: ProviderResponseEvent) -> None:
         """Called after receiving a provider response."""
+        ...
+
+    def on_provider_error(self, event: ProviderErrorEvent) -> None:
+        """Called when provider encounters an error."""
+        ...
+
+    def on_evaluation_start(self, event: EvaluationStartEvent) -> None:
+        """Called when evaluation starts."""
+        ...
+
+    def on_evaluation_end(self, event: EvaluationEndEvent) -> None:
+        """Called when evaluation ends."""
+        ...
+
+    def on_hyperparameter_update(self, event: HyperparameterUpdateEvent) -> None:
+        """Called when hyperparameters are updated."""
         ...
 
 
@@ -313,6 +419,22 @@ class AbstractCallback:
 
     def on_provider_response(self, event: ProviderResponseEvent) -> None:
         """Called after receiving a provider response."""
+        pass
+
+    def on_provider_error(self, event: ProviderErrorEvent) -> None:
+        """Called when provider encounters an error."""
+        pass
+
+    def on_evaluation_start(self, event: EvaluationStartEvent) -> None:
+        """Called when evaluation starts."""
+        pass
+
+    def on_evaluation_end(self, event: EvaluationEndEvent) -> None:
+        """Called when evaluation ends."""
+        pass
+
+    def on_hyperparameter_update(self, event: HyperparameterUpdateEvent) -> None:
+        """Called when hyperparameters are updated."""
         pass
 
 
@@ -1014,6 +1136,14 @@ class CallbackManager:
             return CallbackType.PROVIDER_REQUEST
         elif isinstance(event, ProviderResponseEvent):
             return CallbackType.PROVIDER_RESPONSE
+        elif isinstance(event, ProviderErrorEvent):
+            return CallbackType.PROVIDER_ERROR
+        elif isinstance(event, EvaluationStartEvent):
+            return CallbackType.EVALUATION_START
+        elif isinstance(event, EvaluationEndEvent):
+            return CallbackType.EVALUATION_END
+        elif isinstance(event, HyperparameterUpdateEvent):
+            return CallbackType.HYPERPARAMETER_UPDATE
         else:
             # Default to module start for unknown events
             return CallbackType.MODULE_START
@@ -1036,6 +1166,14 @@ class CallbackManager:
             return getattr(callback, "on_provider_request", None)
         elif isinstance(event, ProviderResponseEvent):
             return getattr(callback, "on_provider_response", None)
+        elif isinstance(event, ProviderErrorEvent):
+            return getattr(callback, "on_provider_error", None)
+        elif isinstance(event, EvaluationStartEvent):
+            return getattr(callback, "on_evaluation_start", None)
+        elif isinstance(event, EvaluationEndEvent):
+            return getattr(callback, "on_evaluation_end", None)
+        elif isinstance(event, HyperparameterUpdateEvent):
+            return getattr(callback, "on_hyperparameter_update", None)
         else:
             return None
 

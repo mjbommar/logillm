@@ -303,7 +303,18 @@ class Refine(Module):
             advice_result = await advisor(**feedback_inputs)
 
             if advice_result.success and advice_result.outputs.get("advice"):
-                return advice_result.outputs["advice"]
+                advice = advice_result.outputs["advice"]
+                # Ensure advice is a dict - sometimes LLM returns a string
+                if isinstance(advice, dict):
+                    return advice
+                elif isinstance(advice, str):
+                    # Convert string advice to dict format
+                    return {self.module.__class__.__name__: advice}
+                else:
+                    # Fallback if advice is neither dict nor string
+                    return {
+                        self.module.__class__.__name__: f"Current reward ({reward:.2f}) is below threshold ({self.threshold}). Consider being more precise and following instructions more carefully."
+                    }
             else:
                 # Fallback advice
                 return {
@@ -355,7 +366,13 @@ class Refine(Module):
                 # Add advice as hint if we have it
                 if advice and hasattr(module_copy.signature, "input_fields"):
                     # Check if we can add a hint field
-                    hint_advice = advice.get(module_copy.__class__.__name__, "N/A")
+                    # Ensure advice is a dict before calling .get()
+                    if isinstance(advice, dict):
+                        hint_advice = advice.get(module_copy.__class__.__name__, "N/A")
+                    else:
+                        # If advice is a string, use it directly
+                        hint_advice = str(advice) if advice else "N/A"
+
                     if hint_advice != "N/A":
                         attempt_inputs["hint_"] = hint_advice
 

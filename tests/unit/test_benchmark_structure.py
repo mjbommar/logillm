@@ -15,7 +15,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from logillm.core.predict import Predict
 from logillm.core.signatures import parse_signature_string
-from logillm.optimizers import BootstrapFewShot, LabeledFewShot
+from logillm.optimizers.bootstrap_fewshot import BootstrapFewShot
+from logillm.optimizers.labeled_fewshot import LabeledFewShot
 from logillm.providers import MockProvider, register_provider
 
 
@@ -279,7 +280,7 @@ async def test_full_benchmark_flow_mock():
 
     async def run_logillm_optimized(task_name, train_data, test_data):
         from logillm.core.predict import Predict
-        from logillm.optimizers import BootstrapFewShot
+        from logillm.optimizers.bootstrap_fewshot import BootstrapFewShot
 
         module = Predict("problem -> answer")
         optimizer = BootstrapFewShot(metric=math_metric, max_bootstrapped_demos=2)

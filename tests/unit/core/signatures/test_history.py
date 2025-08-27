@@ -1,6 +1,5 @@
 """Unit tests for History type."""
 
-
 from logillm.core.signatures.types import History
 
 

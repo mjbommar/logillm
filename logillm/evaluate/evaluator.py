@@ -239,8 +239,8 @@ class Evaluate:
             inputs = example.get("inputs", {})
             expected_outputs = example.get("outputs", {})
 
-            # Run module
-            prediction = await module.forward(**inputs)
+            # Run module (using __call__ to ensure callbacks fire)
+            prediction = await module(**inputs)
 
             if prediction.success:
                 # Evaluate with metric

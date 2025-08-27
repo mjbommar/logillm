@@ -143,7 +143,7 @@ class GroundedProposer(InstructionProposer):
         """
 
         for _ in range(num_proposals):
-            result = await self.instruction_generator.forward(
+            result = await self.instruction_generator(
                 context=context,
                 strategy="program_aware",
                 examples=str(dataset[:3]) if dataset else "No examples available",
@@ -182,7 +182,7 @@ class GroundedProposer(InstructionProposer):
         """
 
         for _ in range(num_proposals):
-            result = await self.instruction_generator.forward(
+            result = await self.instruction_generator(
                 context=context,
                 strategy="data_aware",
                 examples=str(dataset[:3]) if dataset else "No examples",
@@ -218,7 +218,7 @@ class GroundedProposer(InstructionProposer):
             Make it natural and specific to the task at hand.
             """
 
-            result = await self.instruction_generator.forward(
+            result = await self.instruction_generator(
                 context=context,
                 strategy="tip_aware",
                 examples=str(dataset[:2]) if dataset else "General task",
@@ -255,7 +255,7 @@ class GroundedProposer(InstructionProposer):
         """
 
         for _ in range(num_proposals):
-            result = await self.instruction_generator.forward(
+            result = await self.instruction_generator(
                 context=context,
                 strategy="fewshot_aware",
                 examples=str(demonstrations[:2]) if demonstrations else "No demos",

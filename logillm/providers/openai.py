@@ -123,7 +123,7 @@ class OpenAIProvider(Provider):
             max_retries=0,
         )
 
-    async def complete(self, messages: list[dict[str, Any]], **kwargs: Any) -> Completion:
+    async def _complete_impl(self, messages: list[dict[str, Any]], **kwargs: Any) -> Completion:
         """Generate completion using OpenAI API.
 
         Args:
@@ -256,8 +256,8 @@ class OpenAIProvider(Provider):
 
     def supports_vision(self) -> bool:
         """Check if current model supports vision."""
-        # GPT-4.1 family (2025 models) all support vision
-        if self.model.startswith("gpt-4.1"):
+        # GPT-4.1 family (2025 models) - only full model supports vision, not mini
+        if self.model == "gpt-4.1" or self.model == "gpt-4.1-preview":
             return True
 
         # GPT-4o and GPT-4 vision models

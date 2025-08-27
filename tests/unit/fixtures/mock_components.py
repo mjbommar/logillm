@@ -75,21 +75,48 @@ class MockProvider(Provider):
 
     def __init__(self):
         """Initialize mock provider."""
+        super().__init__(provider_name="mock", model="mock-model")
         self.name = "mock"
         self.model = "mock-model"
 
+    async def _complete_impl(self, messages: list[dict[str, Any]], **kwargs) -> Any:
+        """Mock completion implementation."""
+        from logillm.core.types import Completion
+        # Simple mock response
+        if messages:
+            last_message = messages[-1].get("content", "")
+            return Completion(
+                text=f"Mock response to: {last_message}",
+                usage=None,
+                metadata={},
+                finish_reason="stop",
+                model=self.model,
+                provider=self.name
+            )
+        return Completion(
+            text="Mock response",
+            usage=None,
+            metadata={},
+            finish_reason="stop",
+            model=self.model,
+            provider=self.name
+        )
+
     async def complete(self, prompt: str, **kwargs) -> str:
-        """Mock completion."""
-        return f"Mock response to: {prompt}"
+        """Mock completion for backward compatibility."""
+        messages = [{"role": "user", "content": prompt}]
+        result = await self._complete_impl(messages, **kwargs)
+        return result.text if hasattr(result, "text") else str(result)
 
     async def chat(self, messages: list, **kwargs) -> str:
         """Mock chat."""
-        return "Mock chat response"
+        result = await self._complete_impl(messages, **kwargs)
+        return result.text if hasattr(result, "text") else "Mock chat response"
 
-    async def embed(self, text: str, **kwargs) -> list[float]:
+    async def embed(self, texts: list[str], **kwargs) -> list[list[float]]:
         """Mock embedding."""
-        # Return a simple mock embedding vector
-        return [0.1, 0.2, 0.3, 0.4, 0.5]
+        # Return mock embedding vectors for each text
+        return [[0.1, 0.2, 0.3, 0.4, 0.5] for _ in texts]
 
     def get_param_specs(self) -> dict[str, ParamSpec]:
         """Get parameter specifications."""

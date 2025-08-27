@@ -232,9 +232,22 @@ class ChatAdapter(BaseAdapter):
                 content = re.sub(r"[-\s]*$", "", content).strip()
 
                 # Type conversion based on field type
-                if hasattr(signature.output_fields[field_name], "python_type"):
-                    field_type = signature.output_fields[field_name].python_type
-                    if field_type is float:
+                field_info = signature.output_fields[field_name]
+                field_type = None
+                
+                # Get the type annotation
+                if hasattr(field_info, "annotation"):
+                    field_type = field_info.annotation
+                elif hasattr(field_info, "python_type"):
+                    field_type = field_info.python_type
+                
+                if field_type:
+                    # Check if it's a list type
+                    if hasattr(field_type, "__origin__") and field_type.__origin__ is list:
+                        content = self._parse_list_value(content)
+                    elif field_type is list:
+                        content = self._parse_list_value(content)
+                    elif field_type is float:
                         # Try to extract a number
                         number_match = re.search(r"(\d+(?:\.\d+)?)", content)
                         if number_match:
@@ -363,21 +376,69 @@ class ChatAdapter(BaseAdapter):
             return value
 
         value = value.strip()
+        
+        # Handle empty or None-like strings
+        if not value or value.lower() in ["none", "n/a", "[]"]:
+            return []
 
         # Try to parse as JSON array
         if value.startswith("[") and value.endswith("]"):
             try:
                 import json
-
-                return json.loads(value)
+                result = json.loads(value)
+                if isinstance(result, list):
+                    return result
             except json.JSONDecodeError:
                 pass
+
+        # Try to parse as bullet list (- item or * item or • item or number. item)
+        import re
+        bullet_pattern = r"^\s*(?:[-*•]|\d+\.)\s+(.+)$"
+        lines = value.split("\n")
+        if any(re.match(bullet_pattern, line) for line in lines if line.strip()):
+            items = []
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                match = re.match(bullet_pattern, line)
+                if match:
+                    items.append(match.group(1).strip())
+                elif items:  # continuation of previous item
+                    items[-1] += " " + line
+            return items if items else []
+
+        # Try to parse as semicolon-separated list (common for complex items)
+        if ";" in value and "," not in value:
+            items = [item.strip() for item in value.split(";") if item.strip()]
+            if len(items) > 1:
+                return items
 
         # Try to parse as comma-separated list
         # Handle formats like "[apple, banana]" or "apple, banana"
         if value.startswith("[") and value.endswith("]"):
             value = value[1:-1]  # Remove brackets
 
-        # Split by comma and clean up items
-        items = [item.strip().strip("\"'") for item in value.split(",")]
-        return items if items else []
+        # Check if it looks like a single item or multiple
+        if "," in value or " and " in value:
+            # Split by comma first
+            items = []
+            if "," in value:
+                parts = value.split(",")
+                for part in parts:
+                    # Handle "and" within comma-separated items
+                    if " and " in part and len(parts) == 1:
+                        # This is likely a list with "and" as separator
+                        items.extend([item.strip().strip("\"'") for item in part.split(" and ")])
+                    else:
+                        items.append(part.strip().strip("\"'"))
+            else:
+                # Just "and" separator
+                items = [item.strip().strip("\"'") for item in value.split(" and ")]
+            
+            # Filter empty items
+            items = [item for item in items if item]
+            return items if items else []
+        
+        # Single item - return as single-item list
+        return [value] if value else []

@@ -38,25 +38,25 @@ class MemoryEnhancedReActAgent(Module):
     def _parse_json_list(self, text: str) -> list[str]:
         """Parse JSON array from text with fallbacks."""
         import json
-        
+
         if not text or not isinstance(text, str):
             return []
-            
+
         text = text.strip()
-        
+
         # Try JSON array format
-        if text.startswith('[') and text.endswith(']'):
+        if text.startswith("[") and text.endswith("]"):
             try:
                 return json.loads(text)
             except json.JSONDecodeError:
                 pass
-        
+
         # Fallback: split by comma or newlines
-        if ',' in text:
-            return [item.strip() for item in text.split(',') if item.strip()]
-        elif '\n' in text:
-            return [item.strip() for item in text.split('\n') if item.strip()]
-        
+        if "," in text:
+            return [item.strip() for item in text.split(",") if item.strip()]
+        elif "\n" in text:
+            return [item.strip() for item in text.split("\n") if item.strip()]
+
         return [text] if text else []
 
     # Tool implementations
@@ -162,7 +162,7 @@ class MemoryEnhancedReActAgent(Module):
             # Parse string responses to lists
             extractable_facts = self._parse_json_list(analysis.extractable_facts)
             suggested_tags = self._parse_json_list(analysis.suggested_tags)
-            
+
             if extractable_facts:
                 for fact in extractable_facts:
                     if fact.strip():  # Only store non-empty facts

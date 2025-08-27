@@ -1,6 +1,5 @@
 """Unit tests for model capabilities registry."""
 
-
 from logillm.providers.capabilities import (
     ModelCapabilities,
     get_context_window,

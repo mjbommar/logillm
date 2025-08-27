@@ -11,7 +11,6 @@ from logillm.evaluate.evaluator import Evaluate, EvaluationResult
 @pytest.fixture
 def mock_module():
     """Create a mock module for testing."""
-    module = MagicMock()
 
     # Create async forward method
     async def mock_forward(**kwargs):
@@ -28,7 +27,11 @@ def mock_module():
 
         return Prediction(success=True, outputs={"answer": answer}, metadata={})
 
+    # Create a mock module with proper async support
+    module = AsyncMock()
     module.forward = AsyncMock(side_effect=mock_forward)
+    # Make the module itself callable and return the forward result
+    module.side_effect = mock_forward
     return module
 
 
@@ -157,7 +160,7 @@ class TestEvaluate:
         evaluator = Evaluate(dataset=sample_dataset, metric=mock_metric)
 
         # Create module that raises error
-        error_module = MagicMock()
+        error_module = AsyncMock(side_effect=Exception("Test error"))
         error_module.forward = AsyncMock(side_effect=Exception("Test error"))
 
         example = sample_dataset[0]

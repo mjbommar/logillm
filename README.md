@@ -39,6 +39,7 @@ Instead of crafting prompts and parsing responses, you specify the input/output 
 - **🚀 Production Ready** - Full async support, comprehensive error handling, observability
 - **🔧 Auto-Optimization** - Improve performance by optimizing prompts AND hyperparameters
 - **💾 Built-in Persistence** - Save and load optimized models instantly
+- **📊 JSONL Logging** - Track optimization runs with complete reproducibility
 
 ## Installation
 
@@ -172,6 +173,32 @@ result.optimized_module.save("sentiment_model.json")
 # Load in production
 classifier = Predict.load("sentiment_model.json")
 ```
+
+### JSONL Logging for Optimization Tracking
+```python
+# Track and analyze optimization runs
+from logillm.core.jsonl_logger import OptimizationLogger
+
+logger = OptimizationLogger(filepath="optimization.jsonl")
+result = await logger.log_optimization(
+    optimizer=optimizer,
+    module=classifier,
+    dataset=training_data,
+    validation_set=validation_data
+)
+
+# Analyze the log
+import json
+with open("optimization.jsonl") as f:
+    events = [json.loads(line) for line in f]
+    
+# See score progression, hyperparameters, prompts, and more
+for event in events:
+    if event['event_type'] == 'evaluation_end':
+        print(f"Score: {event['score']:.2%}")
+```
+
+**[→ Full JSONL Logging Documentation](docs/features/jsonl-logging.md)**
 
 ## Why LogiLLM?
 

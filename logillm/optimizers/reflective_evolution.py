@@ -8,6 +8,11 @@ import copy
 import time
 from typing import Any, Optional
 
+from ..core.config_utils import (
+    ensure_config,
+    get_hyperparameter,
+    set_hyperparameter,
+)
 from ..core.modules import Module
 from ..core.optimizers import Metric, Optimizer
 from ..core.providers import Provider
@@ -223,12 +228,8 @@ class ReflectiveEvolutionOptimizer(Optimizer):
                     "metadata": {
                         "success": prediction.success if hasattr(prediction, "success") else True,
                         "config": module.config.copy() if hasattr(module, "config") else {},
-                        "temperature": module.config.get("temperature", 0.7)
-                        if hasattr(module, "config")
-                        else 0.7,
-                        "top_p": module.config.get("top_p", 0.9)
-                        if hasattr(module, "config")
-                        else 0.9,
+                        "temperature": get_hyperparameter(module, "temperature", 0.7),
+                        "top_p": get_hyperparameter(module, "top_p", 1.0),
                     },
                 }
                 traces.append(trace)
@@ -461,22 +462,19 @@ class ReflectiveEvolutionOptimizer(Optimizer):
         """Apply improvements to create new candidate."""
         improved = copy.deepcopy(module)
 
+        # Ensure module has proper config
+        ensure_config(improved)
+
         # Apply hyperparameter improvements
         if improvements.get("temperature") is not None:
-            current_temp = (
-                improved.config.get("temperature", 0.7) if hasattr(improved, "config") else 0.7
-            )
+            current_temp = get_hyperparameter(improved, "temperature", 0.7)
             new_temp = max(0.0, min(2.0, current_temp + improvements["temperature"]))
-            if hasattr(improved, "config"):
-                improved.config["temperature"] = new_temp
+            set_hyperparameter(improved, "temperature", new_temp)
 
         if improvements.get("top_p") is not None:
-            current_top_p = (
-                improved.config.get("top_p", 0.9) if hasattr(improved, "config") else 0.9
-            )
+            current_top_p = get_hyperparameter(improved, "top_p", 1.0)
             new_top_p = max(0.1, min(1.0, current_top_p + improvements["top_p"]))
-            if hasattr(improved, "config"):
-                improved.config["top_p"] = new_top_p
+            set_hyperparameter(improved, "top_p", new_top_p)
 
         # Apply instruction improvements
         if improvements.get("instruction"):
@@ -537,18 +535,20 @@ class ReflectiveEvolutionOptimizer(Optimizer):
         merged = copy.deepcopy(candidates[0])
 
         # Merge configurations (average hyperparameters)
-        if hasattr(merged, "config"):
-            temps = []
-            top_ps = []
-            for candidate in candidates:
-                if hasattr(candidate, "config"):
-                    temps.append(candidate.config.get("temperature", 0.7))
-                    top_ps.append(candidate.config.get("top_p", 0.9))
+        # Ensure merged module has proper config
+        ensure_config(merged)
 
-            if temps:
-                merged.config["temperature"] = sum(temps) / len(temps)
-            if top_ps:
-                merged.config["top_p"] = sum(top_ps) / len(top_ps)
+        # Merge hyperparameters (average)
+        temps = []
+        top_ps = []
+        for candidate in candidates:
+            temps.append(get_hyperparameter(candidate, "temperature", 0.7))
+            top_ps.append(get_hyperparameter(candidate, "top_p", 1.0))
+
+        if temps:
+            set_hyperparameter(merged, "temperature", sum(temps) / len(temps))
+        if top_ps:
+            set_hyperparameter(merged, "top_p", sum(top_ps) / len(top_ps))
 
         # Merge demonstrations (take best from each)
         all_demos = []

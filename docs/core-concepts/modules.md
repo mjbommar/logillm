@@ -103,6 +103,23 @@ qa.disable_debug_mode()
 print(qa.optimization_parameters())  # Shows parameters available for tuning
 ```
 
+**Hyperparameter Configuration**: Safe, validated hyperparameter management:
+
+```python
+from logillm.core.config_utils import set_hyperparameter, get_hyperparameter
+
+# Set hyperparameters safely (with automatic validation)
+set_hyperparameter(qa, "temperature", 0.8)
+set_hyperparameter(qa, "max_tokens", 200)
+
+# Get hyperparameters with defaults
+temp = get_hyperparameter(qa, "temperature", default=0.7)
+
+# Hyperparameters are automatically validated and clamped
+set_hyperparameter(qa, "temperature", 3.0)  # Automatically clamped to 2.0
+set_hyperparameter(qa, "top_p", -0.5)       # Automatically clamped to 0.0
+```
+
 ## Core Module Types
 
 ### 1. Predict - The Foundation

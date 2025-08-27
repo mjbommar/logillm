@@ -65,7 +65,7 @@ class MockProvider(Provider):
             self._mock_completion = response
             self.responses = None
 
-    async def complete(self, messages: list[dict[str, str]], **kwargs: Any) -> Completion:
+    async def _complete_impl(self, messages: list[dict[str, str]], **kwargs: Any) -> Completion:
         """Generate mock completion."""
         self.call_count += 1
 

@@ -7,6 +7,7 @@ all implemented with zero external dependencies.
 from __future__ import annotations
 
 import time
+from datetime import datetime
 from typing import Any, Callable
 
 from ..core.modules import Module
@@ -114,52 +115,100 @@ class HyperparameterOptimizer(Optimizer):
         Returns:
             OptimizationResult with optimized module
         """
+        self._start_time = datetime.now()
         start_time = time.time()
 
-        # Initialize logging timestamp
-        if self.verbose and not hasattr(self, "_start_time_seconds"):
-            self._start_time_seconds = start_time
+        # Create callback context
+        context = self._create_context()
 
-        # Get provider and its parameter specs
-        provider = getattr(module, "provider", None) or self._get_default_provider()
-        if not provider:
-            raise OptimizationError(
-                "No provider available for hyperparameter optimization",
-                context={"module": module.__class__.__name__},
+        # Emit optimization start event
+        if self._check_callbacks_enabled():
+            from ..core.callbacks import OptimizationStartEvent
+
+            await self._emit_async(
+                OptimizationStartEvent(
+                    context=context, optimizer=self, module=module, dataset=trainset
+                )
             )
 
-        # Build search space if not provided
-        if self.search_space is None:
-            self.search_space = self._build_search_space(provider)
+        try:
+            # Initialize logging timestamp
+            if self.verbose and not hasattr(self, "_start_time_seconds"):
+                self._start_time_seconds = start_time
 
-        # Initialize search strategy with search space
-        self.search_strategy.initialize(self.search_space)
+            # Get provider and its parameter specs
+            provider = getattr(module, "provider", None) or self._get_default_provider()
+            if not provider:
+                raise OptimizationError(
+                    "No provider available for hyperparameter optimization",
+                    context={"module": module.__class__.__name__},
+                )
 
-        # Run optimization
-        best_config, best_score, actual_trials = await self._optimize_with_strategy(
-            module, trainset, valset
-        )
+            # Build search space if not provided
+            if self.search_space is None:
+                self.search_space = self._build_search_space(provider)
 
-        # Apply best configuration
-        optimized_module = module.deepcopy()
-        if best_config:
-            optimized_module.config.update(best_config)
+            # Initialize search strategy with search space
+            self.search_strategy.initialize(self.search_space)
 
-        optimization_time = time.time() - start_time
+            # Run optimization
+            best_config, best_score, actual_trials = await self._optimize_with_strategy(
+                module, trainset, valset
+            )
 
-        return OptimizationResult(
-            optimized_module=optimized_module,
-            improvement=best_score - await self._evaluate_baseline(module, valset or trainset),
-            iterations=actual_trials,
-            best_score=best_score,
-            optimization_time=optimization_time,
-            metadata={
-                "best_config": best_config,
-                "search_space": list(self.search_space.param_specs),
-                "strategy": self.search_strategy.name,
-                "history": self.history.traces if self.history else None,
-            },
-        )
+            # Apply best configuration
+            optimized_module = module.deepcopy()
+            if best_config:
+                optimized_module.config.update(best_config)
+
+            optimization_time = time.time() - start_time
+
+            result = OptimizationResult(
+                optimized_module=optimized_module,
+                improvement=best_score - await self._evaluate_baseline(module, valset or trainset),
+                iterations=actual_trials,
+                best_score=best_score,
+                optimization_time=optimization_time,
+                metadata={
+                    "best_config": best_config,
+                    "search_space": list(self.search_space.param_specs),
+                    "strategy": self.search_strategy.name,
+                    "history": self.history.traces if self.history else None,
+                },
+            )
+
+            # Emit optimization end event
+            if self._check_callbacks_enabled():
+                from ..core.callbacks import OptimizationEndEvent
+
+                await self._emit_async(
+                    OptimizationEndEvent(
+                        context=context,
+                        optimizer=self,
+                        result=result,
+                        success=True,
+                        duration=(datetime.now() - self._start_time).total_seconds(),
+                    )
+                )
+
+            return result
+
+        except Exception as e:
+            # Emit optimization end event with failure
+            if self._check_callbacks_enabled():
+                from ..core.callbacks import OptimizationEndEvent
+
+                await self._emit_async(
+                    OptimizationEndEvent(
+                        context=context,
+                        optimizer=self,
+                        result=None,
+                        success=False,
+                        duration=(datetime.now() - self._start_time).total_seconds(),
+                        error=e,
+                    )
+                )
+            raise
 
     async def _optimize_with_strategy(
         self,
@@ -454,38 +503,88 @@ class AdaptiveOptimizer(HyperparameterOptimizer):
         self, module: Module, trainset: list[Any], valset: list[Any] | None = None, **kwargs
     ) -> OptimizationResult:
         """Optimize with task-aware parameter selection."""
-        # Analyze task
-        task_type = self.task_analyzer(trainset)
+        self._start_time = datetime.now()
 
-        # Set initial configuration based on task
-        initial_config = self._get_task_config(task_type)
-        module.config.update(initial_config)
+        # Create callback context
+        context = self._create_context()
 
-        # Adjust search space based on task
-        self.search_space = self._get_task_search_space(task_type)
+        # Emit optimization start event
+        if self._check_callbacks_enabled():
+            from ..core.callbacks import OptimizationStartEvent
 
-        # Choose strategy based on task
-        if task_type == "code":
-            # Code generation benefits from more focused search
-            self.search_strategy = SimpleBayesianStrategy(
-                config=StrategyConfig(n_warmup=5, exploration_weight=0.05)
+            await self._emit_async(
+                OptimizationStartEvent(
+                    context=context, optimizer=self, module=module, dataset=trainset
+                )
             )
-        elif task_type == "creative":
-            # Creative tasks benefit from more exploration
-            self.search_strategy = SimpleBayesianStrategy(
-                config=StrategyConfig(n_warmup=15, exploration_weight=0.2)
+
+        try:
+            # Analyze task
+            task_type = self.task_analyzer(trainset)
+
+            # Set initial configuration based on task
+            initial_config = self._get_task_config(task_type)
+            module.config.update(initial_config)
+
+            # Adjust search space based on task
+            self.search_space = self._get_task_search_space(task_type)
+
+            # Choose strategy based on task
+            if task_type == "code":
+                # Code generation benefits from more focused search
+                self.search_strategy = SimpleBayesianStrategy(
+                    config=StrategyConfig(n_warmup=5, exploration_weight=0.05)
+                )
+            elif task_type == "creative":
+                # Creative tasks benefit from more exploration
+                self.search_strategy = SimpleBayesianStrategy(
+                    config=StrategyConfig(n_warmup=15, exploration_weight=0.2)
+                )
+            else:
+                # Default strategy
+                self.search_strategy = SimpleBayesianStrategy()
+
+            # Run optimization - note: this will NOT emit its own start/end events
+            # because we're calling the parent method directly
+            result = await HyperparameterOptimizer.optimize(
+                self, module, trainset, valset, **kwargs
             )
-        else:
-            # Default strategy
-            self.search_strategy = SimpleBayesianStrategy()
 
-        # Run optimization
-        result = await super().optimize(module, trainset, valset, **kwargs)
+            # Add task type to metadata
+            result.metadata["task_type"] = task_type
 
-        # Add task type to metadata
-        result.metadata["task_type"] = task_type
+            # Emit optimization end event
+            if self._check_callbacks_enabled():
+                from ..core.callbacks import OptimizationEndEvent
 
-        return result
+                await self._emit_async(
+                    OptimizationEndEvent(
+                        context=context,
+                        optimizer=self,
+                        result=result,
+                        success=True,
+                        duration=(datetime.now() - self._start_time).total_seconds(),
+                    )
+                )
+
+            return result
+
+        except Exception as e:
+            # Emit optimization end event with failure
+            if self._check_callbacks_enabled():
+                from ..core.callbacks import OptimizationEndEvent
+
+                await self._emit_async(
+                    OptimizationEndEvent(
+                        context=context,
+                        optimizer=self,
+                        result=None,
+                        success=False,
+                        duration=(datetime.now() - self._start_time).total_seconds(),
+                        error=e,
+                    )
+                )
+            raise
 
     def _get_task_config(self, task_type: str) -> Configuration:
         """Get initial configuration for task type."""

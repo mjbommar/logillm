@@ -84,14 +84,16 @@ async def demo_multiple_libraries() -> None:
         if result.code_examples:
             first_example = list(result.code_examples.values())[0]
             print("\n💻 Sample code:")
-            
+
             # Handle potential parsing issues
             try:
-                code_example = str(first_example.code_example) if hasattr(first_example, 'code_example') else "Code example not available"
+                code_example = (
+                    str(first_example.code_example)
+                    if hasattr(first_example, "code_example")
+                    else "Code example not available"
+                )
                 code_preview = (
-                    code_example[:200] + "..."
-                    if len(code_example) > 200
-                    else code_example
+                    code_example[:200] + "..." if len(code_example) > 200 else code_example
                 )
                 print(code_preview)
             except (TypeError, AttributeError):
@@ -99,11 +101,13 @@ async def demo_multiple_libraries() -> None:
 
             print("\n📝 Explanation preview:")
             try:
-                explanation = str(first_example.explanation) if hasattr(first_example, 'explanation') else "Explanation not available"
+                explanation = (
+                    str(first_example.explanation)
+                    if hasattr(first_example, "explanation")
+                    else "Explanation not available"
+                )
                 explanation_preview = (
-                    explanation[:150] + "..."
-                    if len(explanation) > 150
-                    else explanation
+                    explanation[:150] + "..." if len(explanation) > 150 else explanation
                 )
                 print(explanation_preview)
             except (TypeError, AttributeError):

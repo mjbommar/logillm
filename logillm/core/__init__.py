@@ -5,6 +5,7 @@ from .adapters import *
 from .callbacks import *
 from .demos import *
 from .embedders import *
+from .jsonl_logger import OptimizationLogger
 from .knn import *
 from .modules import *
 from .optimizers import *

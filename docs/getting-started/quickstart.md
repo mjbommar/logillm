@@ -200,7 +200,62 @@ Sentiment: frustrated
 - Structured data with validation
 - Self-documenting code
 
-## Step 5: Adding Chain of Thought Reasoning
+## Step 5: Configuring Hyperparameters
+
+Before we dive into more advanced modules, let's learn how to control LLM behavior with hyperparameters:
+
+```python
+#!/usr/bin/env python3
+import asyncio
+import sys
+import os
+sys.path.insert(0, os.path.abspath('../..'))
+
+from logillm.core.predict import Predict
+from logillm.core.config_utils import set_hyperparameter, get_hyperparameter
+from logillm.providers import create_provider, register_provider
+
+async def main():
+    provider = create_provider("openai", model="gpt-4.1")
+    register_provider(provider, set_default=True)
+    
+    # Create a creative writer
+    writer = Predict("topic -> story")
+    
+    # Default temperature (0.7) - balanced creativity
+    result1 = await writer(topic="A robot learns to paint")
+    print("Default temperature story:")
+    print(result1.story[:200] + "...\n")
+    
+    # Lower temperature (0.2) - more focused, less creative
+    set_hyperparameter(writer, "temperature", 0.2)
+    result2 = await writer(topic="A robot learns to paint")
+    print("Low temperature story (more predictable):")
+    print(result2.story[:200] + "...\n")
+    
+    # Higher temperature (1.5) - more creative, more random
+    set_hyperparameter(writer, "temperature", 1.5)
+    set_hyperparameter(writer, "max_tokens", 300)  # Also control length
+    result3 = await writer(topic="A robot learns to paint")
+    print("High temperature story (more creative):")
+    print(result3.story[:200] + "...")
+    
+    # Check current settings
+    current_temp = get_hyperparameter(writer, "temperature")
+    print(f"\nCurrent temperature: {current_temp}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+**Key Hyperparameters:**
+- `temperature` (0.0-2.0): Controls randomness
+- `top_p` (0.0-1.0): Nucleus sampling threshold
+- `max_tokens`: Maximum response length
+- `frequency_penalty`: Reduces repetition
+- Values are automatically validated and clamped to safe ranges!
+
+## Step 6: Chain of Thought Reasoning
 
 For complex problems, we want the LLM to show its work. Update `tutorial.py`:
 
@@ -260,7 +315,7 @@ Answer: 150.0 miles
 - `Predict`: Goes straight to the answer
 - `ChainOfThought`: Shows the thinking process
 
-## Step 6: Making It Robust with Retry
+## Step 7: Making It Robust with Retry
 
 Real applications need error handling. Update `tutorial.py`:
 
@@ -326,7 +381,7 @@ Phone: (555) 123-4567
 - Exponential backoff between attempts
 - Production-ready error handling
 
-## Step 7: Composing Multiple Steps
+## Step 8: Composing Multiple Steps
 
 Real applications chain multiple operations. Update `tutorial.py`:
 
@@ -399,7 +454,7 @@ Summary: Solar panel technology has achieved a 40% efficiency gain in five years
 Key insight: The combination of improved efficiency and reduced costs creates a tipping point for solar energy adoption.
 ```
 
-## Step 8: The Complete Application
+## Step 9: The Complete Application
 
 Let's put it all together into a useful application:
 

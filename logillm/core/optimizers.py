@@ -13,6 +13,7 @@ from typing import Any, Callable, Generic, TypeVar
 
 from ..exceptions import OptimizationError
 from ..protocols.runtime import Configurable, Monitorable
+from .callback_mixin import CallbackMixin, get_current_context
 from .modules import Module, Parameter
 from .types import (
     Configuration,
@@ -96,7 +97,7 @@ class OptimizationConfig:
     metadata: Metadata = field(default_factory=dict)
 
 
-class Optimizer(ABC, Configurable, Monitorable, Generic[M]):
+class Optimizer(ABC, CallbackMixin, Configurable, Monitorable, Generic[M]):
     """Abstract base class for optimizers."""
 
     def __init__(
@@ -106,6 +107,9 @@ class Optimizer(ABC, Configurable, Monitorable, Generic[M]):
         config: OptimizationConfig | None = None,
         verbose: bool = False,
     ):
+        # Initialize the mixin first
+        CallbackMixin.__init__(self)
+
         self.strategy = strategy
         self.metric = metric
         self.config = config or OptimizationConfig(strategy=strategy)
@@ -162,6 +166,24 @@ class Optimizer(ABC, Configurable, Monitorable, Generic[M]):
         dataset: list[dict[str, Any]],
     ) -> tuple[float, list[Trace]]:
         """Evaluate module on dataset."""
+        import time
+
+        eval_start_time = time.time()
+
+        # Get or create callback context
+        parent_context = get_current_context()
+        context = self._create_context(parent_context)
+
+        # Emit evaluation start event
+        if self._check_callbacks_enabled():
+            from .callbacks import EvaluationStartEvent
+
+            await self._emit_async(
+                EvaluationStartEvent(
+                    context=context, optimizer=self, module=module, dataset=dataset
+                )
+            )
+
         traces = []
         scores = []
 
@@ -179,8 +201,9 @@ class Optimizer(ABC, Configurable, Monitorable, Generic[M]):
                 inputs = example.get("inputs", {})
                 expected = example.get("outputs", {})
 
-                # Run module
-                prediction = await module(**inputs)
+                # Run module with context
+                with self._with_callback_context(context):
+                    prediction = await module(**inputs)
 
                 # Compute score
                 score = self.metric(prediction.outputs, expected)
@@ -206,6 +229,22 @@ class Optimizer(ABC, Configurable, Monitorable, Generic[M]):
 
         # Return average score and traces
         avg_score = sum(scores) / len(scores) if scores else 0.0
+
+        # Emit evaluation end event
+        if self._check_callbacks_enabled():
+            from .callbacks import EvaluationEndEvent
+
+            duration = time.time() - eval_start_time
+            await self._emit_async(
+                EvaluationEndEvent(
+                    context=context,
+                    optimizer=self,
+                    module=module,
+                    score=avg_score,
+                    duration=duration,
+                )
+            )
+
         return avg_score, traces
 
     def should_stop(self, iteration: int, score: float) -> bool:
@@ -299,8 +338,22 @@ class BootstrapOptimizer(Optimizer[M]):
         self._start_time = datetime.now()
         self._iteration = 0
 
+        # Create callback context
+        context = self._create_context()
+
+        # Emit optimization start event
+        if self._check_callbacks_enabled():
+            from .callbacks import OptimizationStartEvent
+
+            await self._emit_async(
+                OptimizationStartEvent(
+                    context=context, optimizer=self, module=module, dataset=dataset
+                )
+            )
+
         # Use module as teacher to generate examples
-        teacher = self.compile(module)
+        with self._with_callback_context(context):
+            teacher = self.compile(module)
 
         # Collect successful traces
         successful_demos = []
@@ -345,7 +398,7 @@ class BootstrapOptimizer(Optimizer[M]):
         self._best_score = final_score
         self._metrics["num_demos"] = len(successful_demos)
 
-        return OptimizationResult(
+        result = OptimizationResult(
             optimized_module=student,
             improvement=final_score - 0.0,  # Assuming baseline is 0
             iterations=1,
@@ -353,6 +406,22 @@ class BootstrapOptimizer(Optimizer[M]):
             optimization_time=(datetime.now() - self._start_time).total_seconds(),
             metadata={"demos": successful_demos},
         )
+
+        # Emit optimization end event
+        if self._check_callbacks_enabled():
+            from .callbacks import OptimizationEndEvent
+
+            await self._emit_async(
+                OptimizationEndEvent(
+                    context=context,
+                    optimizer=self,
+                    result=result,
+                    success=True,
+                    duration=result.optimization_time,
+                )
+            )
+
+        return result
 
 
 class RandomSearchOptimizer(Optimizer[M]):

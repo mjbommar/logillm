@@ -191,32 +191,13 @@ class TestCallbackIntegrationWithMockProvider:
         mock_completion = Completion(text="Test response", usage=Usage(), model="test-model")
         provider.set_mock_response(mock_completion)
 
-        # Simulate provider request/response cycle
-        context = CallbackContext()
+        # Call provider.complete() which automatically emits callback events
         messages = [{"role": "user", "content": "Hello"}]
         parameters = {"temperature": 0.7, "max_tokens": 100}
 
-        # Provider request event
-        request_event = ProviderRequestEvent(
-            context=context, provider=provider, messages=messages, parameters=parameters
-        )
-        await callback_manager.emit_async(request_event)
-
-        # Simulate the actual provider call
-        start_time = time.time()
-        completion = await provider.complete(messages, **parameters)
-        duration = time.time() - start_time
-
-        # Provider response event
-        response_event = ProviderResponseEvent(
-            context=context,
-            provider=provider,
-            request_messages=messages,
-            response=completion,
-            usage=completion.usage,
-            duration=duration,
-        )
-        await callback_manager.emit_async(response_event)
+        # The provider.complete() method will automatically emit both
+        # ProviderRequestEvent and ProviderResponseEvent
+        await provider.complete(messages, **parameters)
 
         # Check metrics were collected
         metrics = metrics_callback.get_metrics()

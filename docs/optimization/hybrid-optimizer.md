@@ -14,6 +14,23 @@ Most LLM optimization focuses only on prompts, but hyperparameters are equally i
 **Traditional approach**: Optimize prompts OR hyperparameters separately
 **LogiLLM approach**: Optimize them together for maximum synergy
 
+### Safe Hyperparameter Handling
+
+LogiLLM uses a protective `HyperparameterConfig` system that ensures all hyperparameter updates are safe:
+
+```python
+from logillm.core.config_utils import set_hyperparameter, get_hyperparameter
+
+# Hyperparameters are automatically validated and clamped
+set_hyperparameter(module, "temperature", 3.0)  # Automatically clamped to 2.0
+set_hyperparameter(module, "top_p", -0.5)       # Automatically clamped to 0.0
+
+# Type coercion is automatic
+set_hyperparameter(module, "max_tokens", "200") # Converted to int(200)
+```
+
+This prevents runtime errors from invalid hyperparameter values during optimization.
+
 ## The Three Strategies
 
 ### 1. Alternating Strategy (Default)
