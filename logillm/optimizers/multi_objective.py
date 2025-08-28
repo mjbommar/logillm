@@ -7,6 +7,7 @@ import copy
 import time
 from typing import Any, Callable, Optional
 
+from ..core.config_utils import ensure_config, set_config_value
 from ..core.modules import Module
 from ..core.optimizers import Metric, Optimizer
 from ..core.types import OptimizationResult, OptimizationStrategy, Usage
@@ -464,9 +465,10 @@ class MultiObjectiveOptimizer(Optimizer):
 
         # Apply hyperparameters
         if hasattr(result, "config"):
+            ensure_config(result)
             for key in ["temperature", "top_p", "max_tokens"]:
                 if key in config:
-                    result.config[key] = config[key]
+                    set_config_value(result, key, config[key])
 
         # Apply demonstration count (simplified)
         if "num_demos" in config and hasattr(result, "parameters"):

@@ -10,6 +10,7 @@ import time
 from datetime import datetime
 from typing import Any, Callable
 
+from ..core.config_utils import ensure_config, update_config
 from ..core.modules import Module
 from ..core.optimizers import Optimizer
 from ..core.parameters import (
@@ -159,7 +160,8 @@ class HyperparameterOptimizer(Optimizer):
             # Apply best configuration
             optimized_module = module.deepcopy()
             if best_config:
-                optimized_module.config.update(best_config)
+                ensure_config(optimized_module)
+                update_config(optimized_module, best_config)
 
             optimization_time = time.time() - start_time
 
@@ -238,7 +240,8 @@ class HyperparameterOptimizer(Optimizer):
 
             # Apply configuration
             test_module = module.deepcopy()
-            test_module.config.update(config)
+            ensure_config(test_module)
+            update_config(test_module, config)
 
             # Evaluate
             score = await self._evaluate_module(test_module, eval_set)
@@ -342,7 +345,8 @@ class HyperparameterOptimizer(Optimizer):
             raise ValueError(f"Unknown preset: {preset}")
 
         configured = module.deepcopy()
-        configured.config.update(STANDARD_PRESETS[preset])
+        ensure_config(configured)
+        update_config(configured, STANDARD_PRESETS[preset])
         return configured
 
     def analyze_parameters(self) -> dict[str, Any]:
@@ -524,7 +528,8 @@ class AdaptiveOptimizer(HyperparameterOptimizer):
 
             # Set initial configuration based on task
             initial_config = self._get_task_config(task_type)
-            module.config.update(initial_config)
+            ensure_config(module)
+            update_config(module, initial_config)
 
             # Adjust search space based on task
             self.search_space = self._get_task_search_space(task_type)

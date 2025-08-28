@@ -5,6 +5,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from ..core.config_utils import ensure_config, update_config
 from ..core.modules import Module, Parameter
 from ..core.optimizers import Metric
 from ..core.types import OptimizationResult, OptimizationStrategy
@@ -417,11 +418,8 @@ class BootstrapFewShot(PromptOptimizer):
             teacher_settings["temperature"] = current_temperature
 
             if hasattr(teacher, "config"):
-                if hasattr(teacher.config, "update"):
-                    teacher.config.update(teacher_settings)
-                else:
-                    for key, value in teacher_settings.items():
-                        setattr(teacher.config, key, value)
+                ensure_config(teacher)
+                update_config(teacher, teacher_settings)
 
             # Update provider settings
             if hasattr(teacher, "provider") and teacher.provider:
