@@ -117,8 +117,10 @@ class ReAct(Module):
         self._create_react_signature()
 
         # Create modules for reasoning and extraction
-        self.react_predict = Predict(self.react_signature, config=config)
-        self.extract_predict = Predict(self.fallback_signature, config=config)
+        # Extract provider from config if available
+        provider = config.get('provider') if config else None
+        self.react_predict = Predict(self.react_signature, provider=provider, config=config)
+        self.extract_predict = Predict(self.fallback_signature, provider=provider, config=config)
 
     def _get_output_fields(self) -> str:
         """Get output field names as a string."""
