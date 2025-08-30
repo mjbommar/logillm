@@ -132,7 +132,7 @@ class ChatAdapter(FormatAdapter):
                     # Add type hints for numeric fields
                     if hasattr(field_spec, "annotation"):
                         if field_spec.annotation is float:
-                            desc += " (provide as a decimal number between 0.0 and 1.0)"
+                            desc += " (provide as a decimal number)"
                         elif field_spec.annotation is int:
                             desc += " (provide as an integer number)"
                     output_hints.append(f"- {desc}")
@@ -167,7 +167,7 @@ class ChatAdapter(FormatAdapter):
                 # Add type hints for numeric fields
                 if hasattr(field_spec, "annotation"):
                     if field_spec.annotation is float:
-                        desc += " (provide as a decimal number between 0.0 and 1.0)"
+                        desc += " (provide as a decimal number)"
                     elif field_spec.annotation is int:
                         desc += " (provide as an integer number)"
                 output_hints.append(f"- {desc}")

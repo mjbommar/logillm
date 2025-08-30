@@ -429,16 +429,15 @@ class Extractors:
             if 0 <= value <= 1:
                 return value if as_decimal else value * 100
 
-        # Strategy 6: Extract any number and check if it's percentage-like
+        # Strategy 6: Extract any number BUT don't assume it's a percentage
+        # Only treat as percentage if there's clear context
         num = Extractors.number(text_str, default=None)
         if num is not None:
-            if 0 <= num <= 1:
-                # Likely a decimal representation
-                return num if as_decimal else num * 100
-            elif 0 <= num <= 100:
-                # Likely a percentage representation
-                return num / 100 if as_decimal else num
-
+            # For plain numbers without percentage context, return default
+            # This prevents misinterpreting regular numbers as percentages
+            # The percentage method should only convert when there's clear percentage intent
+            pass
+            
         return default
 
     @staticmethod
