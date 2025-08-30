@@ -308,7 +308,12 @@ class Tool:
     def __str__(self) -> str:
         desc_str = f", whose description is <desc>{self.desc}</desc>." if self.desc else "."
         desc_str = desc_str.replace("\n", "  ")
-        args_str = f"It takes arguments {self.args}." if self.args else "It takes no arguments."
+        # Only list argument names, not the full JSON schema
+        if self.args:
+            arg_names = list(self.args.keys())
+            args_str = f"It takes arguments: {', '.join(arg_names)}."
+        else:
+            args_str = "It takes no arguments."
         return f"{self.name}{desc_str} {args_str}"
 
 
