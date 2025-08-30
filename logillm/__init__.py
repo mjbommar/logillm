@@ -18,10 +18,10 @@ Core Architecture:
     Core Layer (Base Abstractions)
 """
 
-__version__ = "0.2.3"
+__version__ = "0.2.4"
 
 # version tuple
-__version_info__ = (0, 2, 3)
+__version_info__ = (0, 2, 4)
 
 # Core exports
 from .core.modules import (
