@@ -256,8 +256,12 @@ class OpenAIProvider(Provider):
 
     def supports_vision(self) -> bool:
         """Check if current model supports vision."""
-        # GPT-4.1 family (2025 models) - only full model supports vision, not mini
-        if self.model == "gpt-4.1" or self.model == "gpt-4.1-preview":
+        # GPT-5 family (2025 models) - all support vision
+        if self.model in ["gpt-5", "gpt-5-mini", "gpt-5-nano"]:
+            return True
+        
+        # GPT-4.1 family (2025 models) - all support vision
+        if self.model in ["gpt-4.1", "gpt-4.1-preview", "gpt-4.1-mini"]:
             return True
 
         # GPT-4o and GPT-4 vision models
