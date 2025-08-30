@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.9"
 
 [[package]]
@@ -450,8 +450,12 @@ wheels = [
 
 [[package]]
 name = "logillm"
-version = "0.2.0"
+version = "0.2.1"
 source = { editable = "." }
+dependencies = [
+    { name = "anthropic" },
+    { name = "openai" },
+]
 
 [package.optional-dependencies]
 all = [
@@ -481,9 +485,11 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", specifier = ">=0.64.0" },
     { name = "anthropic", marker = "extra == 'anthropic'", specifier = ">=0.39.0" },
     { name = "google-genai", marker = "extra == 'google'", specifier = ">=0.3.0" },
     { name = "logillm", extras = ["openai", "anthropic", "google"], marker = "extra == 'all'" },
+    { name = "openai", specifier = ">=1.101.0" },
     { name = "openai", marker = "extra == 'openai'", specifier = ">=1.100.2" },
 ]
 provides-extras = ["openai", "anthropic", "google", "all"]

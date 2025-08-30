@@ -35,11 +35,12 @@ Instead of crafting prompts and parsing responses, you specify the input/output 
 ## Key Features
 
 - **🎯 Structured I/O** - Type-safe inputs and outputs with automatic validation
-- **⚡ Zero Dependencies** - Core library uses only Python standard library  
+- **⚡ Zero Dependencies** - Core library uses only Python standard library
 - **🚀 Production Ready** - Full async support, comprehensive error handling, observability
 - **🔧 Auto-Optimization** - Improve performance by optimizing prompts AND hyperparameters
 - **💾 Built-in Persistence** - Save and load optimized models instantly
 - **📊 JSONL Logging** - Track optimization runs with complete reproducibility
+- **🔍 Complete Debug Logging** - Capture full request/response data from LLM APIs
 
 ## Installation
 

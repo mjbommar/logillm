@@ -224,3 +224,77 @@ class TestDebugMode:
         assert result.prompt is not None
         assert "prompt" in result.metadata
         assert result.metadata["prompt"] == result.prompt["messages"]
+
+    @pytest.mark.asyncio
+    async def test_debug_captures_complete_request_response(self):
+        """Test that debug mode captures complete request and response data."""
+        mock_provider = MockProvider()
+        predict = Predict("question -> answer", provider=mock_provider, debug=True)
+
+        result = await predict(question="What is 2+2?")
+
+        # Check that request data is captured
+        assert result.request is not None
+        assert "messages" in result.request
+        assert "provider" in result.request
+        assert "model" in result.request
+        assert "adapter" in result.request
+        assert "demos_count" in result.request
+        assert "provider_config" in result.request
+        assert "timestamp" in result.request
+
+        # Check that response data is captured
+        assert result.response is not None
+        assert "text" in result.response
+        assert "usage" in result.response
+        assert "finish_reason" in result.response
+        assert "model" in result.response
+        assert "provider" in result.response
+        assert "metadata" in result.response
+        assert "timestamp" in result.response
+
+        # Check usage details in response
+        usage = result.response["usage"]
+        assert "input_tokens" in usage
+        assert "output_tokens" in usage
+        assert "total_tokens" in usage
+        assert "cached_tokens" in usage
+        assert "reasoning_tokens" in usage
+
+    @pytest.mark.asyncio
+    async def test_debug_disabled_no_request_response(self):
+        """Test that request/response data is not captured when debug is disabled."""
+        mock_provider = MockProvider()
+        predict = Predict("question -> answer", provider=mock_provider, debug=False)
+
+        result = await predict(question="What is 2+2?")
+
+        # Request and response should not be captured
+        assert result.request is None
+        assert result.response is None
+
+        # But prompt should still be None (existing behavior)
+        assert result.prompt is None
+
+    @pytest.mark.asyncio
+    async def test_debug_toggle_preserves_request_response(self):
+        """Test that toggling debug mode affects request/response capture."""
+        mock_provider = MockProvider()
+        predict = Predict("question -> answer", provider=mock_provider)
+
+        # Initially no debug
+        result1 = await predict(question="Test 1")
+        assert result1.request is None
+        assert result1.response is None
+
+        # Enable debug
+        predict.enable_debug_mode()
+        result2 = await predict(question="Test 2")
+        assert result2.request is not None
+        assert result2.response is not None
+
+        # Disable debug
+        predict.disable_debug_mode()
+        result3 = await predict(question="Test 3")
+        assert result3.request is None
+        assert result3.response is None

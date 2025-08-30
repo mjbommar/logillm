@@ -189,7 +189,7 @@ class Prediction:
     """Result of a module execution.
 
     Contains the outputs from the module, usage statistics, and optionally
-    the prompt that was sent to the LLM (when debug mode is enabled).
+    the complete request/response data when debug mode is enabled.
     """
 
     outputs: dict[str, FieldValue] = field(default_factory=dict)
@@ -198,6 +198,8 @@ class Prediction:
     success: bool = True
     error: str | None = None
     prompt: dict[str, Any] | None = None  # Contains messages, adapter, etc. when debugging
+    request: dict[str, Any] | None = None  # Complete request payload sent to provider API
+    response: dict[str, Any] | None = None  # Complete response received from provider API
 
     def __getattr__(self, name: str) -> FieldValue:
         """Allow dot notation access to outputs."""
@@ -209,7 +211,16 @@ class Prediction:
     def __setattr__(self, name: str, value: Any) -> None:
         """Allow dot notation setting of outputs."""
         # Check if we're initializing the object
-        if name in {"outputs", "usage", "metadata", "success", "error", "prompt"}:
+        if name in {
+            "outputs",
+            "usage",
+            "metadata",
+            "success",
+            "error",
+            "prompt",
+            "request",
+            "response",
+        }:
             object.__setattr__(self, name, value)
         elif "outputs" in self.__dict__:
             self.__dict__["outputs"][name] = value

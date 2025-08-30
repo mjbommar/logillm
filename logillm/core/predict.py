@@ -192,9 +192,13 @@ class Predict(Module):
             **self.metadata,
         }
 
-        # Capture prompt information if debug mode is enabled
+        # Capture debug information if debug mode is enabled
         prompt_info = None
+        request_info = None
+        response_info = None
+
         if self._debug_mode:
+            # Capture prompt information (existing functionality)
             prompt_info = {
                 "messages": messages,
                 "adapter": self.adapter.format_type.value,
@@ -205,12 +209,60 @@ class Predict(Module):
             # Also add to metadata for backwards compatibility
             metadata["prompt"] = messages
 
+            # Capture complete request payload
+            request_info = {
+                "messages": messages,
+                "provider": provider.name,
+                "model": provider.model,
+                "adapter": self.adapter.format_type.value,
+                "demos_count": len(demo_dicts),
+                "provider_config": provider_config,
+                "timestamp": completion.usage.timestamp.isoformat()
+                if completion.usage and completion.usage.timestamp
+                else None,
+            }
+
+            # Capture complete response data
+            response_info = {
+                "text": completion.text,
+                "usage": {
+                    "input_tokens": completion.usage.tokens.input_tokens
+                    if completion.usage and completion.usage.tokens
+                    else 0,
+                    "output_tokens": completion.usage.tokens.output_tokens
+                    if completion.usage and completion.usage.tokens
+                    else 0,
+                    "cached_tokens": completion.usage.tokens.cached_tokens
+                    if completion.usage and completion.usage.tokens
+                    else 0,
+                    "reasoning_tokens": completion.usage.tokens.reasoning_tokens
+                    if completion.usage and completion.usage.tokens
+                    else 0,
+                    "total_tokens": completion.usage.tokens.total_tokens
+                    if completion.usage and completion.usage.tokens
+                    else 0,
+                }
+                if completion.usage and completion.usage.tokens
+                else {},
+                "cost": completion.usage.cost if completion.usage else None,
+                "latency": completion.usage.latency if completion.usage else None,
+                "finish_reason": completion.finish_reason,
+                "model": completion.model,
+                "provider": completion.provider,
+                "metadata": completion.metadata,
+                "timestamp": completion.usage.timestamp.isoformat()
+                if completion.usage and completion.usage.timestamp
+                else None,
+            }
+
         prediction = Prediction(
             outputs=validated_outputs,
             usage=completion.usage,
             metadata=metadata,
             success=True,
             prompt=prompt_info,
+            request=request_info,
+            response=response_info,
         )
 
         return prediction

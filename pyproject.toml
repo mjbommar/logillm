@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logillm"
-version = "0.2.1"
+version = "0.2.2"
 description = "A generic, high-performance, low-dependency LLM programming framework inspired by dspy"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -38,7 +38,10 @@ classifiers = [
 ]
 
 # Core dependencies - keeping it minimal
-dependencies = []
+dependencies = [
+    "anthropic>=0.64.0",
+    "openai>=1.101.0",
+]
 
 [project.optional-dependencies]
 # Provider integrations - only install what you need

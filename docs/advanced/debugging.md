@@ -4,7 +4,7 @@
 
 ## Quick Start: Debug Mode
 
-The easiest way to debug LogiLLM applications is to enable debug mode, which captures the actual prompts sent to LLMs:
+The easiest way to debug LogiLLM applications is to enable debug mode, which captures **complete request and response data** from LLM API interactions:
 
 ```python
 from logillm.core.predict import Predict
@@ -12,27 +12,72 @@ from logillm.core.predict import Predict
 # Method 1: Enable debug when creating a module
 qa = Predict("question -> answer", debug=True)
 result = await qa(question="What is 2+2?")
-print(result.prompt)  # See the actual prompt sent to the LLM
+
+# Access complete debug information
+print("Request:", result.request)    # Full request payload sent to API
+print("Response:", result.response)  # Complete response received from API
+print("Prompt:", result.prompt)      # Formatted prompt information
 
 # Method 2: Toggle debug mode dynamically
 qa = Predict("question -> answer")
 qa.enable_debug_mode()
 result = await qa(question="What is 2+2?")
-print(result.prompt["messages"])  # Access the messages
+print("Tokens used:", result.response["usage"]["total_tokens"])
 
 # Method 3: Use environment variable for global debug
 # export LOGILLM_DEBUG=1
 # Now all modules will have debug enabled by default
 ```
 
-## Understanding Prompt Structure
+## Understanding Debug Data Structure
 
-When debug mode is enabled, the `prompt` field in Prediction contains:
+When debug mode is enabled, LogiLLM captures **complete request and response data** from LLM API interactions:
+
+### Request Data (`result.request`)
+Contains the complete payload sent to the LLM provider:
+
+```python
+{
+    "messages": [...],           # Full conversation messages
+    "provider": "openai",        # Provider identifier
+    "model": "gpt-4.1-mini",     # Model being used
+    "adapter": "chat",           # Message format adapter
+    "demos_count": 0,            # Number of demonstrations included
+    "provider_config": {...},    # All provider parameters (temperature, etc.)
+    "timestamp": "..."           # When request was made
+}
+```
+
+### Response Data (`result.response`)
+Contains the complete response received from the LLM provider:
+
+```python
+{
+    "text": "...",               # Full response text
+    "usage": {                   # Complete token usage breakdown
+        "input_tokens": 10,
+        "output_tokens": 5,
+        "cached_tokens": 0,
+        "reasoning_tokens": 0,
+        "total_tokens": 15
+    },
+    "cost": 0.00023,            # API cost in dollars (if available)
+    "latency": 0.85,            # Response time in seconds
+    "finish_reason": "stop",    # Why generation stopped
+    "model": "gpt-4.1-mini",    # Responding model
+    "provider": "openai",       # Responding provider
+    "metadata": {...},          # Provider-specific metadata
+    "timestamp": "..."          # When response was received
+}
+```
+
+### Prompt Data (`result.prompt`) - Legacy
+For backward compatibility, the original prompt structure is still available:
 
 ```python
 {
     "messages": [...],        # The actual messages sent to the LLM
-    "adapter": "chat",        # Format adapter used (chat, json, xml, markdown)
+    "adapter": "chat",        # Format adapter used
     "demos_count": 2,         # Number of demonstrations included
     "provider": "openai",     # Provider being used
     "model": "gpt-4.1"       # Model being used
@@ -41,7 +86,72 @@ When debug mode is enabled, the `prompt` field in Prediction contains:
 
 ## Common Debugging Scenarios
 
-### 1. Understanding Prompt Construction
+### 1. Understanding Complete API Interactions
+
+When debug mode is enabled, you get **complete visibility** into LLM API interactions:
+
+```python
+qa = Predict("question -> answer", debug=True)
+result = await qa(question="What is the capital of France?")
+
+# Complete request data
+print("📤 REQUEST:")
+print(f"  Provider: {result.request['provider']}")
+print(f"  Model: {result.request['model']}")
+print(f"  Messages: {len(result.request['messages'])}")
+print(f"  Timestamp: {result.request['timestamp']}")
+
+# Complete response data
+print("\n📥 RESPONSE:")
+print(f"  Text: {result.response['text'][:100]}...")
+print(f"  Tokens: {result.response['usage']['total_tokens']}")
+print(f"  Cost: ${result.response.get('cost', 'N/A')}")
+print(f"  Latency: {result.response.get('latency', 'N/A')}s")
+print(f"  Finish Reason: {result.response['finish_reason']}")
+```
+
+### 2. Monitoring API Costs and Performance
+
+Track costs and performance across your application:
+
+```python
+qa = Predict("question -> answer", debug=True)
+
+# Make several predictions
+results = []
+for question in ["What is 2+2?", "What is 3+3?", "What is 4+4?"]:
+    result = await qa(question=question)
+    results.append(result)
+
+# Analyze costs and performance
+total_cost = sum(r.response.get('cost', 0) for r in results if r.response)
+total_tokens = sum(r.response['usage']['total_tokens'] for r in results if r.response)
+avg_latency = sum(r.response.get('latency', 0) for r in results if r.response) / len(results)
+
+print(f"Total cost: ${total_cost:.6f}")
+print(f"Total tokens: {total_tokens}")
+print(f"Average latency: {avg_latency:.2f}s")
+```
+
+### 3. Debugging API Errors and Issues
+
+Get complete information when API calls fail:
+
+```python
+qa = Predict("question -> answer", debug=True)
+
+try:
+    result = await qa(question="Very long question that might exceed token limits...")
+except Exception as e:
+    # Even on errors, debug data is captured
+    if hasattr(result, 'request') and result.request:
+        print("Request that caused error:")
+        print(f"  Message length: {len(str(result.request['messages']))} chars")
+        print(f"  Provider: {result.request['provider']}")
+    print(f"Error: {e}")
+```
+
+### 4. Understanding Prompt Construction
 
 When your module isn't producing expected results, check what's actually being sent:
 
@@ -50,14 +160,14 @@ qa = Predict("question -> answer", debug=True)
 
 # Add demonstrations to see how they're formatted
 qa.add_demo({
-    "inputs": {"question": "What is 2+2?"}, 
+    "inputs": {"question": "What is 2+2?"},
     "outputs": {"answer": "4"}
 })
 
 result = await qa(question="What is 5+3?")
 
-# Examine the prompt
-for i, msg in enumerate(result.prompt["messages"]):
+# Examine the complete request
+for i, msg in enumerate(result.request["messages"]):
     print(f"Message {i}: {msg['role']}")
     print(f"Content: {msg['content'][:200]}...")  # First 200 chars
 ```
@@ -264,10 +374,37 @@ result = await reliable_qa(question="What is 2+2?")
 
 ## Summary
 
-Debug mode in LogiLLM provides:
-- **Visibility**: See exactly what's sent to LLMs
-- **Flexibility**: Enable per-module, globally, or dynamically
-- **Safety**: No performance impact when disabled
-- **Integration**: Works with all modules and optimizers
+Debug mode in LogiLLM provides **complete transparency** into LLM API interactions:
 
-Use debug mode during development to understand prompt construction, diagnose issues, and optimize your LLM applications effectively.
+### 🔍 **Complete Request Logging**
+- Full messages sent to LLM APIs
+- Provider and model information
+- All request parameters and configurations
+- Timestamps for request tracking
+
+### 📥 **Complete Response Logging**
+- Full response text from LLMs
+- Detailed token usage (input, output, cached, reasoning)
+- API costs and latency metrics
+- Finish reasons and metadata
+- Response timestamps
+
+### 🎛️ **Flexible Control**
+- **Per-module**: `debug=True` parameter
+- **Global**: `LOGILLM_DEBUG=1` environment variable
+- **Dynamic**: `enable_debug_mode()` / `disable_debug_mode()` methods
+- **Zero performance impact** when disabled
+
+### 🔗 **Universal Support**
+- Works with **all LLM providers** (OpenAI, Anthropic, Google, etc.)
+- Compatible with **all module types** (Predict, Avatar, ReAct, Retry, etc.)
+- Integrates with **all optimizers** and workflows
+
+### 💡 **Use Cases**
+- **Development**: Understand prompt construction and API behavior
+- **Debugging**: Diagnose issues with LLM responses and parameters
+- **Monitoring**: Track costs, performance, and usage patterns
+- **Optimization**: Analyze token usage and API efficiency
+- **Compliance**: Audit LLM interactions and data flows
+
+Debug mode gives you **complete visibility** into your LLM applications, making development, debugging, and optimization much more effective!
