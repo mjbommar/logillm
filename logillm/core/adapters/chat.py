@@ -74,9 +74,9 @@ class ChatAdapter(BaseAdapter):
                 )
                 if field_type:
                     if field_type is float:
-                        desc += " (provide as a decimal number between 0.0 and 1.0)"
+                        pass  # Don't add confusing hints for float
                     elif field_type is int:
-                        desc += " (provide as an integer number)"
+                        desc += " (provide as an integer)"
                     elif field_type is Fraction:
                         desc += " (provide ONLY as a fraction like '1/6' or '3/4', no other text)"
                 system_msg += f"- {name}: {desc}\n"
