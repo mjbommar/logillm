@@ -106,10 +106,48 @@ def coerce_value_to_spec(value: Any, spec: FieldSpec) -> FieldValue:
     # Handle generic types (List, Dict, Optional, Union)
     origin = get_origin(target_type)
     if origin is list:
-        if not isinstance(value, list):
-            raise ValueError(f"Expected list, got {type(value)}")
-        # Could add element type validation here
-        return value
+        if isinstance(value, list):
+            return value
+        elif isinstance(value, str):
+            # Try to parse string as list
+            value = value.strip()
+            
+            # Try JSON parsing first
+            if value.startswith('[') and value.endswith(']'):
+                try:
+                    import json
+                    parsed = json.loads(value)
+                    if isinstance(parsed, list):
+                        return parsed
+                except (json.JSONDecodeError, ImportError):
+                    # Try replacing single quotes with double quotes for Python-style lists
+                    try:
+                        fixed_value = value.replace("'", '"')
+                        parsed = json.loads(fixed_value)
+                        if isinstance(parsed, list):
+                            return parsed
+                    except (json.JSONDecodeError, ImportError):
+                        pass
+            
+            # Parse comma-separated values
+            if ',' in value:
+                return [item.strip().strip('"\'') for item in value.split(',') if item.strip()]
+            
+            # Parse newline-separated values  
+            if '\n' in value:
+                items = []
+                for line in value.split('\n'):
+                    line = line.strip()
+                    # Remove bullet points
+                    line = re.sub(r'^[-*•]\s*', '', line)
+                    if line:
+                        items.append(line)
+                return items if items else []
+            
+            # Single item - return as list
+            return [value] if value else []
+        else:
+            raise ValueError(f"Cannot convert {type(value)} to list")
     elif origin is dict:
         if not isinstance(value, dict):
             raise ValueError(f"Expected dict, got {type(value)}")

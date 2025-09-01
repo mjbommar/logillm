@@ -51,7 +51,26 @@ class JSONAdapter(BaseAdapter):
             lines.append("Output fields to provide in JSON:")
             for name, field in signature.output_fields.items():
                 desc = getattr(field, "desc", f"The {name}")
-                field_type = getattr(field, "type_", "string")
+                
+                # Determine JSON type from python_type
+                python_type = getattr(field, "python_type", None) or getattr(field, "annotation", None)
+                field_type = "string"  # default
+                
+                if python_type:
+                    from typing import get_origin
+                    origin = get_origin(python_type)
+                    
+                    if origin is list or python_type is list:
+                        field_type = "array"
+                    elif python_type is int:
+                        field_type = "integer"
+                    elif python_type is float:
+                        field_type = "number"
+                    elif python_type is bool:
+                        field_type = "boolean"
+                    elif python_type is dict or origin is dict:
+                        field_type = "object"
+                
                 lines.append(f"- {name} ({field_type}): {desc}")
             lines.append("")
 

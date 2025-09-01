@@ -172,14 +172,10 @@ class ChatAdapter(BaseAdapter):
                         field_spec = signature.output_fields.get(field_name)
                         if field_spec and hasattr(field_spec, "python_type"):
                             # Check if it's a list type
-                            if (
-                                hasattr(field_spec.python_type, "__origin__")
-                                and field_spec.python_type.__origin__ is list
-                            ):
-                                # Try to parse the value as a list
-                                value = self._parse_list_value(value)
-                            elif field_spec.python_type is list:
-                                # Plain list type
+                            from typing import get_origin
+                            origin = get_origin(field_spec.python_type)
+                            if origin is list or field_spec.python_type is list:
+                                # Parse the value as a list
                                 value = self._parse_list_value(value)
                         parsed[field_name] = value
                         break
@@ -243,9 +239,9 @@ class ChatAdapter(BaseAdapter):
 
                 if field_type:
                     # Check if it's a list type
-                    if hasattr(field_type, "__origin__") and field_type.__origin__ is list:
-                        content = self._parse_list_value(content)
-                    elif field_type is list:
+                    from typing import get_origin
+                    origin = get_origin(field_type)
+                    if origin is list or field_type is list:
                         content = self._parse_list_value(content)
                     elif field_type is float:
                         # Try to extract a number
@@ -330,12 +326,9 @@ class ChatAdapter(BaseAdapter):
                 value = response
                 if field_spec and hasattr(field_spec, "python_type"):
                     # Check if it's a list type
-                    if (
-                        hasattr(field_spec.python_type, "__origin__")
-                        and field_spec.python_type.__origin__ is list
-                    ):
-                        value = self._parse_list_value(response)
-                    elif field_spec.python_type is list:
+                    from typing import get_origin
+                    origin = get_origin(field_spec.python_type)
+                    if origin is list or field_spec.python_type is list:
                         value = self._parse_list_value(response)
                 # Single output field - assign entire response (or parsed list)
                 parsed[field_name] = value

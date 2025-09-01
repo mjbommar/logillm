@@ -159,13 +159,11 @@ class Retry(Module):
         # Start with a copy of the original signature
         fields_dict = {}
 
-        # Add all original input fields - convert to InputField objects
+        # Add all original input fields - preserve type information
         if hasattr(original_signature, "input_fields"):
             for name, field_info in original_signature.input_fields.items():
-                # Convert FieldSpec to InputField for make_signature
-                desc = getattr(field_info, "description", None) or f"Input field {name}"
-                default = getattr(field_info, "default", None)
-                fields_dict[name] = InputField(description=desc, default=default)
+                # Preserve the original field with all its type information
+                fields_dict[name] = field_info
 
         # Add past_{field} inputs for each output field
         if hasattr(original_signature, "output_fields"):
@@ -192,13 +190,11 @@ class Retry(Module):
         )
         fields_dict["feedback"] = feedback_field
 
-        # Add all original output fields - convert to OutputField objects
+        # Add all original output fields - preserve type information
         if hasattr(original_signature, "output_fields"):
             for name, field_info in original_signature.output_fields.items():
-                # Convert FieldSpec to OutputField for make_signature
-                desc = getattr(field_info, "description", None) or f"Output field {name}"
-                default = getattr(field_info, "default", None)
-                fields_dict[name] = OutputField(description=desc, default=default)
+                # Preserve the original field with all its type information
+                fields_dict[name] = field_info
 
         # Create new signature class dynamically
         from .signatures.factory import make_signature
