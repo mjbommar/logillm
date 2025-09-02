@@ -174,14 +174,15 @@ class Predict(Module):
             parsed_outputs = {"output": text}
 
         # Validate outputs if signature available
-        if self.signature and parsed_outputs:
+        # Note: Check parsed_outputs is not None, not just truthy (empty dict is falsy but valid)
+        if self.signature and parsed_outputs is not None:
             try:
                 validated_outputs = self.signature.validate_outputs(**parsed_outputs)
             except Exception:
                 # If validation fails, keep parsed outputs
                 validated_outputs = parsed_outputs
         else:
-            validated_outputs = parsed_outputs
+            validated_outputs = parsed_outputs if parsed_outputs is not None else {}
 
         # Create prediction with optional prompt capture
         metadata = {
@@ -362,12 +363,12 @@ class ChainOfThought(Predict):
         }
 
         # Add original output fields after reasoning
-        # For float fields that don't have descriptions, add a helpful one
+        # Convert all fields to FieldSpec for consistency
         if signature and hasattr(signature, "output_fields"):
             for field_name, field_spec in signature.output_fields.items():  # type: ignore[attr-defined]
                 # Handle both BaseSignature FieldSpec and EnhancedSignature FieldInfo
                 if hasattr(field_spec, "python_type"):
-                    # BaseSignature FieldSpec
+                    # BaseSignature FieldSpec - already in correct format
                     if field_spec.python_type is float and not field_spec.description:
                         # Add a description to help the model output decimals
                         from .signatures import FieldSpec
@@ -383,12 +384,24 @@ class ChainOfThought(Predict):
                     else:
                         new_output_fields[field_name] = field_spec
                 elif hasattr(field_spec, "annotation"):
-                    # EnhancedSignature FieldInfo (Pydantic)
-                    if field_spec.annotation is float:
-                        # For Pydantic fields, keep as-is but check if we need to add description
-                        new_output_fields[field_name] = field_spec
-                    else:
-                        new_output_fields[field_name] = field_spec
+                    # EnhancedSignature FieldInfo (Pydantic) - convert to FieldSpec
+                    from .signatures import FieldSpec
+                    from .types import FieldType
+                    
+                    # Extract description from json_schema_extra if available
+                    desc = ""
+                    if hasattr(field_spec, "json_schema_extra") and field_spec.json_schema_extra:
+                        desc = field_spec.json_schema_extra.get("desc", "")
+                    
+                    # Create FieldSpec with proper type information
+                    new_spec = FieldSpec(
+                        name=field_name,
+                        field_type=FieldType.OUTPUT,
+                        python_type=field_spec.annotation,
+                        description=desc or f"The {field_name}",
+                        required=getattr(field_spec, "is_required", lambda: True)() if callable(getattr(field_spec, "is_required", None)) else True,
+                    )
+                    new_output_fields[field_name] = new_spec
                 else:
                     # Unknown field type, pass through
                     new_output_fields[field_name] = field_spec
@@ -405,6 +418,13 @@ class ChainOfThought(Predict):
             metadata=getattr(signature, "metadata", {}) if signature else {},
         )
 
+        # Increase max_tokens for ChainOfThought since we're adding reasoning
+        # Default is 4000, we bump it to 6000 for CoT unless user specified
+        if 'config' not in kwargs:
+            kwargs['config'] = {}
+        if 'max_tokens' not in kwargs['config']:
+            kwargs['config']['max_tokens'] = 6000  # More space for reasoning + outputs
+        
         super().__init__(signature=modified_signature, **kwargs)
         self.reasoning_field = reasoning_field
 

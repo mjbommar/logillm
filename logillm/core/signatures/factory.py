@@ -146,7 +146,8 @@ class SignatureMeta(BaseMeta):  # type: ignore[misc]
 
         # Enhance Pydantic fields with defaults
         if hasattr(cls, "model_fields"):
-            for field_name, field in cls.model_fields.items():  # type: ignore[attr-defined]
+            field_names = list(cls.model_fields.keys())
+            for idx, (field_name, field) in enumerate(cls.model_fields.items()):  # type: ignore[attr-defined]
                 if not isinstance(field, FieldInfo):
                     continue
 
@@ -161,6 +162,16 @@ class SignatureMeta(BaseMeta):  # type: ignore[misc]
                 # Add description if missing
                 if "desc" not in field.json_schema_extra:
                     field.json_schema_extra["desc"] = f"${{{field_name}}}"
+                
+                # IMPORTANT: If no field type is specified, use position-based heuristic
+                # First field is input, rest are outputs (DSPy convention)
+                if "__logillm_field_type" not in field.json_schema_extra:
+                    if idx == 0 and len(field_names) > 1:
+                        # First field is input when there are multiple fields
+                        field.json_schema_extra["__logillm_field_type"] = "input"
+                    else:
+                        # Rest are outputs
+                        field.json_schema_extra["__logillm_field_type"] = "output"
 
         return cls
 

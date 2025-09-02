@@ -452,7 +452,7 @@ STANDARD_PARAM_SPECS = {
         param_type=ParamType.INT,
         domain=ParamDomain.EFFICIENCY,
         description="Maximum tokens to generate",
-        default=1000,
+        default=4000,  # Increased default for complex signatures
         range=(1, 32000),
         step=100,
     ),

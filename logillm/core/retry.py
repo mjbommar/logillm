@@ -120,13 +120,9 @@ class Retry(Module):
         # Store the original signature
         self.original_signature = module.signature
 
-        # Create enhanced signature with retry fields
-        enhanced_signature = (
-            self._create_retry_signature(module.signature) if module.signature else None
-        )
-
-        # Initialize with the enhanced signature
-        super().__init__(signature=enhanced_signature, config=config, metadata=metadata)
+        # Use the wrapped module's signature directly - don't enhance it
+        # This ensures the signature contract is preserved
+        super().__init__(signature=module.signature, config=config, metadata=metadata)
 
         self.module = module
         self.max_retries = max_retries
@@ -258,21 +254,9 @@ class Retry(Module):
 
     async def forward(self, **inputs: Any) -> Prediction:
         """Execute the module with retry logic."""
-        # Extract the original inputs (without past fields and feedback)
-        original_inputs = {}
-        past_outputs = {}
-        feedback = None
-
-        # Separate original inputs from retry-specific fields
-        for key, value in inputs.items():
-            if key.startswith("past_"):
-                past_outputs[key] = value
-            elif key == "feedback":
-                feedback = value
-            else:
-                # This is an original input field
-                original_inputs[key] = value
-
+        # Since we're not enhancing the signature anymore, all inputs are original inputs
+        original_inputs = inputs.copy()
+        
         last_prediction = None
         module_inputs = original_inputs.copy()
 
@@ -308,21 +292,24 @@ class Retry(Module):
                 if attempt > self.max_retries:
                     break
 
-                # Prepare inputs for next attempt with feedback and past outputs
-                if self.original_signature and hasattr(self.original_signature, "output_fields"):
-                    # Add past outputs for the next attempt
-                    module_inputs = original_inputs.copy()
-
-                    # Add past outputs if available
-                    if prediction.outputs:
-                        for field_name in self.original_signature.output_fields:
-                            if field_name in prediction.outputs:
-                                past_field_name = f"past_{field_name}"
-                                module_inputs[past_field_name] = prediction.outputs[field_name]
-
-                    # Generate and add feedback
-                    feedback = self.feedback_generator(self.history)
-                    if feedback:
+                # For next attempt, we'll add feedback directly to inputs
+                # This is a simpler approach that doesn't require signature enhancement
+                module_inputs = original_inputs.copy()
+                
+                # Generate feedback and add it to the appropriate input field
+                feedback = self.feedback_generator(self.history)
+                if feedback and self.original_signature:
+                    # If there's a single text input field, append feedback to it
+                    # Otherwise, create a feedback field (module will ignore if not in signature)
+                    input_fields = getattr(self.original_signature, "input_fields", {})
+                    if len(input_fields) == 1:
+                        # Single input field - append feedback to it
+                        field_name = next(iter(input_fields.keys()))
+                        original_value = module_inputs.get(field_name, "")
+                        module_inputs[field_name] = f"{original_value}\n\n{feedback}"
+                    else:
+                        # Multiple input fields or unknown - just add feedback field
+                        # Module will use it if it has a feedback field, otherwise ignore
                         module_inputs["feedback"] = feedback
 
                 # Wait before retry
@@ -351,12 +338,18 @@ class Retry(Module):
                     break
 
                 # Prepare inputs for next attempt with feedback about the error
-                if self.original_signature:
-                    module_inputs = original_inputs.copy()
-
-                    # Generate and add feedback about the error
-                    feedback = self.feedback_generator(self.history)
-                    if feedback:
+                module_inputs = original_inputs.copy()
+                
+                # Generate feedback about the error
+                feedback = self.feedback_generator(self.history)
+                if feedback and self.original_signature:
+                    # Same logic as success case - append to single input or add feedback field
+                    input_fields = getattr(self.original_signature, "input_fields", {})
+                    if len(input_fields) == 1:
+                        field_name = next(iter(input_fields.keys()))
+                        original_value = module_inputs.get(field_name, "")
+                        module_inputs[field_name] = f"{original_value}\n\n{feedback}"
+                    else:
                         module_inputs["feedback"] = feedback
 
                 # Wait before retry
