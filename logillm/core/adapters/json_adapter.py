@@ -112,24 +112,57 @@ class JSONAdapter(BaseAdapter):
 
         # Try to extract and parse JSON using our utilities
         json_str = extract_json_object(response)
+        parsed = None
         if json_str:
             try:
                 parsed = json.loads(json_str)
-                if isinstance(parsed, dict):
-                    return parsed
-                elif not isinstance(parsed, dict):
+                if not isinstance(parsed, dict):
                     raise ParseError("JSONAdapter", response, f"Expected dict, got {type(parsed)}")
             except json.JSONDecodeError:
                 pass
 
-        # Try to repair the JSON
-        repaired = repair_json_simple(response)
-        if repaired:
-            if isinstance(repaired, dict):
-                return repaired
+        # Try to repair the JSON if parsing failed
+        if parsed is None:
+            repaired = repair_json_simple(response)
+            if repaired:
+                if isinstance(repaired, dict):
+                    parsed = repaired
+                else:
+                    raise ParseError(
+                        "JSONAdapter", response, f"Expected dict after repair, got {type(repaired)}"
+                    )
             else:
-                raise ParseError(
-                    "JSONAdapter", response, f"Expected dict after repair, got {type(repaired)}"
-                )
-
-        raise ParseError("JSONAdapter", response, "Could not parse or repair JSON")
+                raise ParseError("JSONAdapter", response, "Could not parse or repair JSON")
+        
+        # IMPORTANT: Guarantee all output fields are present
+        # This is a core promise of LogiLLM signatures
+        if signature and hasattr(signature, "output_fields"):
+            for field_name, field_spec in signature.output_fields.items():
+                if field_name not in parsed:
+                    # Provide a default value based on the field type
+                    if hasattr(field_spec, "python_type"):
+                        field_type = field_spec.python_type
+                    elif hasattr(field_spec, "annotation"):
+                        field_type = field_spec.annotation
+                    else:
+                        field_type = str
+                    
+                    # Generate appropriate default based on type
+                    from typing import get_origin
+                    origin = get_origin(field_type)
+                    
+                    if origin is list or field_type is list:
+                        parsed[field_name] = []
+                    elif field_type is int:
+                        parsed[field_name] = 0
+                    elif field_type is float:
+                        parsed[field_name] = 0.0
+                    elif field_type is bool:
+                        parsed[field_name] = False
+                    elif field_type is dict:
+                        parsed[field_name] = {}
+                    else:
+                        # Default to empty string for string and unknown types
+                        parsed[field_name] = ""
+        
+        return parsed

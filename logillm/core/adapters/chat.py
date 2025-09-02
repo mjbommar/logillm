@@ -62,7 +62,7 @@ class ChatAdapter(BaseAdapter):
             system_msg += "\n"
 
         if hasattr(signature, "output_fields"):
-            system_msg += "Output fields (provide these in your response):\n"
+            system_msg += "Output fields (YOU MUST provide ALL of these in your response):\n"
             for name, field in signature.output_fields.items():
                 desc = getattr(field, "desc", f"The {name}")
                 # Add type hints for numeric fields
@@ -73,13 +73,28 @@ class ChatAdapter(BaseAdapter):
                     field, "annotation", None
                 )
                 if field_type:
-                    if field_type is float:
+                    from typing import get_origin, get_args
+                    origin = get_origin(field_type)
+                    
+                    if origin is list or field_type is list:
+                        # Provide clear instructions for list fields
+                        args = get_args(field_type) if origin is list else []
+                        if args:
+                            item_type = args[0].__name__ if hasattr(args[0], '__name__') else str(args[0])
+                            desc += f" (provide as a list of {item_type} items, one per line starting with '- ')"
+                        else:
+                            desc += " (provide as a list with items starting with '- ', one per line)"
+                    elif field_type is float:
                         pass  # Don't add confusing hints for float
                     elif field_type is int:
                         desc += " (provide as an integer)"
                     elif field_type is Fraction:
                         desc += " (provide ONLY as a fraction like '1/6' or '3/4', no other text)"
                 system_msg += f"- {name}: {desc}\n"
+        
+        # Add a reminder to include all fields
+        if hasattr(signature, "output_fields") and len(signature.output_fields) > 0:
+            system_msg += "\nREMEMBER: You must provide ALL output fields listed above in your response."
 
         messages.append({"role": "system", "content": system_msg})
 
@@ -360,6 +375,37 @@ class ChatAdapter(BaseAdapter):
                     parsed["reasoning"] = response.replace(
                         str(parsed.get("answer", "")), ""
                     ).strip()
+
+        # IMPORTANT: Guarantee all output fields are present
+        # This is a core promise of LogiLLM signatures
+        if signature and hasattr(signature, "output_fields"):
+            for field_name, field_spec in signature.output_fields.items():
+                if field_name not in parsed:
+                    # Provide a default value based on the field type
+                    if hasattr(field_spec, "python_type"):
+                        field_type = field_spec.python_type
+                    elif hasattr(field_spec, "annotation"):
+                        field_type = field_spec.annotation
+                    else:
+                        field_type = str
+                    
+                    # Generate appropriate default based on type
+                    from typing import get_origin
+                    origin = get_origin(field_type)
+                    
+                    if origin is list or field_type is list:
+                        parsed[field_name] = []
+                    elif field_type is int:
+                        parsed[field_name] = 0
+                    elif field_type is float:
+                        parsed[field_name] = 0.0
+                    elif field_type is bool:
+                        parsed[field_name] = False
+                    elif field_type is dict:
+                        parsed[field_name] = {}
+                    else:
+                        # Default to empty string for string and unknown types
+                        parsed[field_name] = ""
 
         return parsed
 
