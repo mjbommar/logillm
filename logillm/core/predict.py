@@ -45,7 +45,27 @@ class Predict(Module):
 
         # Adapter setup
         if adapter is None:
-            self.adapter = ChatAdapter()
+            # Use JSON adapter for structured outputs with multiple fields or list fields
+            if signature and hasattr(signature, 'output_fields'):
+                # Check if we have structured outputs (multiple fields or lists)
+                has_lists = False
+                for field in signature.output_fields.values():
+                    field_type = getattr(field, 'python_type', None) or getattr(field, 'annotation', None)
+                    if field_type:
+                        from typing import get_origin
+                        origin = get_origin(field_type)
+                        if origin is list or field_type is list:
+                            has_lists = True
+                            break
+                
+                # Use JSON for multiple output fields or any list fields
+                if len(signature.output_fields) > 1 or has_lists:
+                    from .adapters.json_adapter import JSONAdapter
+                    self.adapter = JSONAdapter()
+                else:
+                    self.adapter = ChatAdapter()
+            else:
+                self.adapter = ChatAdapter()
         elif isinstance(adapter, (AdapterFormat, str)):
             if isinstance(adapter, str):
                 adapter = AdapterFormat(adapter)

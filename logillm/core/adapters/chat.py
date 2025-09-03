@@ -178,39 +178,60 @@ class ChatAdapter(BaseAdapter):
 
         # Try to parse as key-value pairs using our utility
         kv_pairs = parse_key_value_pairs(response)
+        missing_fields = set()  # Track fields that need extraction
+        
         if kv_pairs and hasattr(signature, "output_fields"):
             # Map parsed keys to expected output fields (case-insensitive)
             for field_name in signature.output_fields:
+                found = False
                 for key, value in kv_pairs.items():
-                    if field_name.lower() == key.lower() and value:  # Only use non-empty values
-                        # Check if the field is supposed to be a list
-                        field_spec = signature.output_fields.get(field_name)
-                        if field_spec and hasattr(field_spec, "python_type"):
-                            # Check if it's a list type
-                            from typing import get_origin
-                            origin = get_origin(field_spec.python_type)
-                            if origin is list or field_spec.python_type is list:
-                                # Parse the value as a list
-                                value = self._parse_list_value(value)
-                        parsed[field_name] = value
-                        break
+                    if field_name.lower() == key.lower():
+                        if value:  # Non-empty value
+                            # Check if the field is supposed to be a list
+                            field_spec = signature.output_fields.get(field_name)
+                            if field_spec and hasattr(field_spec, "python_type"):
+                                # Check if it's a list type
+                                from typing import get_origin
+                                origin = get_origin(field_spec.python_type)
+                                if origin is list or field_spec.python_type is list:
+                                    # Parse the value as a list
+                                    value = self._parse_list_value(value)
+                            parsed[field_name] = value
+                            found = True
+                            break
+                        else:
+                            # Empty value - might be a list field with items on next lines
+                            # Mark for extraction
+                            missing_fields.add(field_name)
+                            found = True
+                            break
+                
+                if not found:
+                    # Field not found in kv_pairs at all
+                    missing_fields.add(field_name)
 
-        # If no fields parsed, try to extract from free text
-        if not parsed and hasattr(signature, "output_fields"):
+        # If we have missing fields OR no fields parsed at all, try to extract from free text
+        if (missing_fields or not parsed) and hasattr(signature, "output_fields"):
             # Simple heuristic: look for field names in the text
             import re
 
             # First pass: Find all field positions
             field_positions = {}
-            for field_name in signature.output_fields:
-                # Look for patterns like "field_name:" or "- field_name:"
+            # If we have specific missing fields, only look for those
+            # Otherwise look for all output fields
+            fields_to_find = missing_fields if missing_fields else signature.output_fields.keys()
+            for field_name in fields_to_find:
+                # Look for patterns like "field_name:", "- field_name:", or "**field_name**:"
+                # Be more precise to avoid matching field names inside content
                 patterns = [
-                    rf"(?:^|\n|\s|-)?\s*{field_name}\s*:\s*",
-                    rf"(?:^|\n)\s*{field_name}\s+",
+                    rf"(?:^|\n)\s*-\s*\*\*{field_name}\*\*\s*:\s*",    # - **field**: format
+                    rf"(?:^|\n)\s*-\s*{field_name}\s*:\s*",            # - field: format  
+                    rf"(?:^|\n)\s*{field_name}\s*:\s*",                # field: format at line start
+                    rf"(?:^|\n)\s*\*\*{field_name}\*\*\s*:\s*",        # **field**: at line start
                 ]
 
                 for pattern in patterns:
-                    match = re.search(pattern, response, re.IGNORECASE)
+                    match = re.search(pattern, response, re.IGNORECASE | re.MULTILINE)
                     if match:
                         field_positions[field_name] = match.end()
                         break
@@ -227,17 +248,61 @@ class ChatAdapter(BaseAdapter):
                     )  # Adjust for field name and colon
                     # Find the actual start of the next field
                     next_field = sorted_fields[i + 1][0]
-                    next_match = re.search(
-                        rf"(?:^|\n|\s|-)?\s*{next_field}\s*:\s*",
-                        response[start_pos:],
-                        re.IGNORECASE,
-                    )
+                    # Try the same precise patterns we used for initial detection
+                    patterns = [
+                        rf"(?:^|\n)\s*-\s*\*\*{next_field}\*\*\s*:\s*",    # - **field**: format
+                        rf"(?:^|\n)\s*-\s*{next_field}\s*:\s*",            # - field: format
+                        rf"(?:^|\n)\s*{next_field}\s*:\s*",                # field: format at line start
+                        rf"(?:^|\n)\s*\*\*{next_field}\*\*\s*:\s*",        # **field**: at line start
+                    ]
+                    
+                    next_match = None
+                    for pattern in patterns:
+                        next_match = re.search(
+                            pattern,
+                            response[start_pos:],
+                            re.IGNORECASE | re.MULTILINE,
+                        )
+                        if next_match:
+                            break
                     if next_match:
                         end_pos = start_pos + next_match.start()
                 else:
                     end_pos = len(response)
 
                 content = response[start_pos:end_pos].strip()
+                
+                # Special handling for list fields - check if content is empty or just a colon
+                # and the next lines are indented (bullet list format)
+                if (not content or content == ":") and field_name in signature.output_fields:
+                    field_info = signature.output_fields[field_name]
+                    field_type = None
+                    if hasattr(field_info, "annotation"):
+                        field_type = field_info.annotation
+                    elif hasattr(field_info, "python_type"):
+                        field_type = field_info.python_type
+                    
+                    from typing import get_origin
+                    origin = get_origin(field_type) if field_type else None
+                    
+                    # If this is a list field and content is empty, look for indented items
+                    if origin is list or field_type is list:
+                        # Look for bullet items on the following lines
+                        remaining_text = response[start_pos:end_pos if end_pos != len(response) else None]
+                        bullet_lines = []
+                        for line in remaining_text.split('\n'):
+                            # Check if line starts with whitespace and a bullet
+                            if re.match(r'^\s+[-*•]|\s+\d+\.', line):
+                                bullet_lines.append(line)
+                            elif bullet_lines and line.strip() and not line.startswith(' '):
+                                # Stop if we hit a non-indented line after bullets
+                                break
+                            elif bullet_lines and line.strip():
+                                # Include continuation lines
+                                bullet_lines.append(line)
+                        
+                        if bullet_lines:
+                            content = '\n'.join(bullet_lines)
 
                 # Clean up the content (remove trailing dashes, etc.)
                 content = re.sub(r"[-\s]*$", "", content).strip()

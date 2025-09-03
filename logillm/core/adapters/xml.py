@@ -128,16 +128,58 @@ class XMLAdapter(BaseAdapter):
 
             # Extract fields from XML
             if hasattr(signature, "output_fields"):
-                for field_name in signature.output_fields:
+                for field_name, field_spec in signature.output_fields.items():
+                    # Determine if this is a list field
+                    is_list_field = False
+                    if hasattr(field_spec, "python_type"):
+                        field_type = field_spec.python_type
+                    elif hasattr(field_spec, "annotation"):
+                        field_type = field_spec.annotation
+                    else:
+                        field_type = str
+                    
+                    from typing import get_origin
+                    origin = get_origin(field_type)
+                    if origin is list or field_type is list:
+                        is_list_field = True
+                    
                     # Try direct child element
                     elem = root.find(field_name)
-                    if elem is not None:
-                        parsed[field_name] = elem.text or ""
-                    else:
+                    if elem is None:
                         # Try searching recursively
                         elem = root.find(f".//{field_name}")
-                        if elem is not None:
-                            parsed[field_name] = elem.text or ""
+                    
+                    if elem is not None:
+                        if is_list_field:
+                            # Check for nested item elements
+                            items = elem.findall("item")
+                            if items:
+                                # Structured list with <item> elements
+                                parsed[field_name] = [item.text or "" for item in items]
+                            elif elem.text:
+                                # Comma-separated list
+                                parsed[field_name] = [s.strip() for s in elem.text.split(',') if s.strip()]
+                            else:
+                                parsed[field_name] = []
+                        else:
+                            # Regular field - check for type conversion
+                            text_value = elem.text or ""
+                            
+                            # Try to convert to appropriate type
+                            if field_type is int:
+                                try:
+                                    parsed[field_name] = int(text_value)
+                                except (ValueError, TypeError):
+                                    parsed[field_name] = text_value
+                            elif field_type is float:
+                                try:
+                                    parsed[field_name] = float(text_value)
+                                except (ValueError, TypeError):
+                                    parsed[field_name] = text_value
+                            elif field_type is bool:
+                                parsed[field_name] = text_value.lower() in ('true', '1', 'yes')
+                            else:
+                                parsed[field_name] = text_value
             else:
                 # Extract all child elements
                 for child in root:

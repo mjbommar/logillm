@@ -613,12 +613,18 @@ class OpenAIProvider(Provider):
                 if details and hasattr(details, "cached_tokens"):
                     cached_tokens = details.cached_tokens or 0
 
+            tokens = TokenUsage(
+                input_tokens=response.usage.prompt_tokens,
+                output_tokens=response.usage.completion_tokens,
+                cached_tokens=cached_tokens,
+            )
+            
+            # Calculate cost
+            cost = self._calculate_cost(tokens)
+            
             usage = Usage(
-                tokens=TokenUsage(
-                    input_tokens=response.usage.prompt_tokens,
-                    output_tokens=response.usage.completion_tokens,
-                    cached_tokens=cached_tokens,
-                ),
+                tokens=tokens,
+                cost=cost,
                 provider=self.name,
                 model=self.model,
             )
@@ -631,6 +637,100 @@ class OpenAIProvider(Provider):
             model=response.model,
             provider=self.name,
         )
+
+    def _calculate_cost(self, tokens: TokenUsage) -> float:
+        """Calculate estimated cost based on token usage.
+
+        OpenAI pricing (as of 2025):
+        GPT-5 Family:
+        - GPT-5 (Standard): $1.25/$10 per 1M tokens (input/output)
+        - GPT-5 Mini: $0.25/$2 per 1M tokens
+        - GPT-5 Nano: $0.05/$0.40 per 1M tokens
+        
+        GPT-4.1 Family:
+        - GPT-4.1: $2.50/$10 per 1M tokens (estimated based on GPT-4 pricing)
+        - GPT-4.1-mini: $0.15/$0.60 per 1M tokens (similar to GPT-4o-mini)
+        - GPT-4.1-nano: $0.05/$0.20 per 1M tokens
+        
+        GPT-4o Family:
+        - GPT-4o: $2.50/$10 per 1M tokens
+        - GPT-4o-mini: $0.15/$0.60 per 1M tokens
+        
+        Legacy:
+        - GPT-4-turbo: $10/$30 per 1M tokens
+        - GPT-4: $30/$60 per 1M tokens
+        - GPT-3.5-turbo: $0.50/$1.50 per 1M tokens
+        """
+        model_lower = self.model.lower()
+        
+        # GPT-5 Family (2025)
+        if "gpt-5" in model_lower:
+            if "nano" in model_lower:
+                input_cost = tokens.input_tokens * 0.00000005  # $0.05 per 1M
+                output_cost = tokens.output_tokens * 0.0000004  # $0.40 per 1M
+            elif "mini" in model_lower:
+                input_cost = tokens.input_tokens * 0.00000025  # $0.25 per 1M
+                output_cost = tokens.output_tokens * 0.000002   # $2 per 1M
+            else:  # Standard GPT-5
+                input_cost = tokens.input_tokens * 0.00000125  # $1.25 per 1M
+                output_cost = tokens.output_tokens * 0.00001    # $10 per 1M
+        
+        # GPT-4.1 Family (2025)
+        elif "gpt-4.1" in model_lower:
+            if "nano" in model_lower:
+                input_cost = tokens.input_tokens * 0.00000005  # $0.05 per 1M
+                output_cost = tokens.output_tokens * 0.0000002  # $0.20 per 1M
+            elif "mini" in model_lower:
+                input_cost = tokens.input_tokens * 0.00000015  # $0.15 per 1M
+                output_cost = tokens.output_tokens * 0.0000006  # $0.60 per 1M
+            else:  # Standard GPT-4.1
+                input_cost = tokens.input_tokens * 0.0000025   # $2.50 per 1M
+                output_cost = tokens.output_tokens * 0.00001    # $10 per 1M
+        
+        # GPT-4o Family
+        elif "gpt-4o" in model_lower:
+            if "mini" in model_lower:
+                input_cost = tokens.input_tokens * 0.00000015  # $0.15 per 1M
+                output_cost = tokens.output_tokens * 0.0000006  # $0.60 per 1M
+            else:  # Standard GPT-4o
+                input_cost = tokens.input_tokens * 0.0000025   # $2.50 per 1M
+                output_cost = tokens.output_tokens * 0.00001    # $10 per 1M
+        
+        # GPT-4 Legacy
+        elif "gpt-4-turbo" in model_lower:
+            input_cost = tokens.input_tokens * 0.00001      # $10 per 1M
+            output_cost = tokens.output_tokens * 0.00003    # $30 per 1M
+        elif "gpt-4" in model_lower:
+            input_cost = tokens.input_tokens * 0.00003      # $30 per 1M
+            output_cost = tokens.output_tokens * 0.00006    # $60 per 1M
+        
+        # GPT-3.5
+        elif "gpt-3.5" in model_lower:
+            input_cost = tokens.input_tokens * 0.0000005    # $0.50 per 1M
+            output_cost = tokens.output_tokens * 0.0000015  # $1.50 per 1M
+        
+        # O1 reasoning models (no official pricing yet, estimate similar to GPT-4)
+        elif model_lower.startswith("o1"):
+            input_cost = tokens.input_tokens * 0.00003      # Estimate $30 per 1M
+            output_cost = tokens.output_tokens * 0.00006    # Estimate $60 per 1M
+        
+        # Default fallback (assume GPT-3.5 pricing)
+        else:
+            input_cost = tokens.input_tokens * 0.0000005    # $0.50 per 1M
+            output_cost = tokens.output_tokens * 0.0000015  # $1.50 per 1M
+        
+        # Apply cached token discount (90% off for cached tokens)
+        if tokens.cached_tokens > 0:
+            # Cached tokens cost 10% of regular input tokens
+            cached_cost = tokens.cached_tokens * 0.00000125 * 0.1  # 10% of regular cost
+            # Adjust input cost to remove cached portion
+            regular_input_tokens = tokens.input_tokens - tokens.cached_tokens
+            if model_lower.startswith("gpt-5"):
+                input_cost = regular_input_tokens * 0.00000125 + cached_cost
+            elif model_lower.startswith("gpt-4"):
+                input_cost = regular_input_tokens * 0.0000025 + cached_cost
+        
+        return input_cost + output_cost
 
     def _update_metrics(self, completion: Completion) -> None:
         """Update provider metrics from completion.
@@ -654,6 +754,10 @@ class OpenAIProvider(Provider):
                 self._metrics["cached_tokens"] = (
                     self._metrics.get("cached_tokens", 0) + tokens.cached_tokens
                 )
+            
+            # Calculate and store cost
+            cost = self._calculate_cost(tokens)
+            self._metrics["total_cost"] = self._metrics.get("total_cost", 0) + cost
 
         self._metrics["total_calls"] = self._metrics.get("total_calls", 0) + 1
 

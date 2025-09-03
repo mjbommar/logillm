@@ -147,6 +147,22 @@ class Retry(Module):
             value=base_delay, learnable=True, metadata={"type": "retry_timing"}
         )
 
+    @property
+    def signature(self):
+        """Return the wrapped module's signature for proper output validation.
+        
+        This ensures that when Module.__call__ validates outputs, it uses
+        the correct signature with the expected output fields.
+        """
+        if hasattr(self, 'module') and self.module:
+            return self.module.signature
+        return getattr(self, '_signature', None)
+    
+    @signature.setter
+    def signature(self, value):
+        """Store the signature value but don't use it directly."""
+        self._signature = value
+
     def _create_retry_signature(self, original_signature: Signature) -> type[Signature] | None:
         """Create enhanced signature with past outputs and feedback fields."""
         if not original_signature:
@@ -158,8 +174,14 @@ class Retry(Module):
         # Add all original input fields - preserve type information
         if hasattr(original_signature, "input_fields"):
             for name, field_info in original_signature.input_fields.items():
-                # Preserve the original field with all its type information
-                fields_dict[name] = field_info
+                # Check if it's a FieldSpec that needs conversion to InputField
+                if hasattr(field_info, 'python_type') and not hasattr(field_info, 'json_schema_extra'):
+                    # It's a FieldSpec from BaseSignature, convert to InputField for Pydantic
+                    desc = getattr(field_info, 'description', f"The {name}")
+                    fields_dict[name] = InputField(description=desc)
+                else:
+                    # It's already a FieldInfo/InputField, use as-is
+                    fields_dict[name] = field_info
 
         # Add past_{field} inputs for each output field
         if hasattr(original_signature, "output_fields"):
@@ -189,8 +211,14 @@ class Retry(Module):
         # Add all original output fields - preserve type information
         if hasattr(original_signature, "output_fields"):
             for name, field_info in original_signature.output_fields.items():
-                # Preserve the original field with all its type information
-                fields_dict[name] = field_info
+                # Check if it's a FieldSpec that needs conversion to OutputField
+                if hasattr(field_info, 'python_type') and not hasattr(field_info, 'json_schema_extra'):
+                    # It's a FieldSpec from BaseSignature, convert to OutputField for Pydantic
+                    desc = getattr(field_info, 'description', f"The {name}")
+                    fields_dict[name] = OutputField(description=desc)
+                else:
+                    # It's already a FieldInfo/OutputField, use as-is
+                    fields_dict[name] = field_info
 
         # Create new signature class dynamically
         from .signatures.factory import make_signature

@@ -168,6 +168,8 @@ def parse_key_value_pairs(text: str, delimiter: str = ":") -> dict[str, str]:
             parts = line.split(delimiter, 1)
             if len(parts) == 2:
                 key = parts[0].strip().strip("\"'")
+                # Also strip markdown bold formatting (**)
+                key = key.strip("*").strip("-").strip()
                 value = parts[1].strip().strip("\"'")
                 if key:
                     result[key] = value
