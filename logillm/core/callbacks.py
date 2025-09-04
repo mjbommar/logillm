@@ -119,6 +119,7 @@ class ModuleEndEvent(CallbackEvent):
         prediction: Prediction | None = None,
         success: bool = True,
         duration: float | None = None,
+        inputs: dict[str, Any] | None = None,
         timestamp: datetime | None = None,
     ):
         """Initialize module end event."""
@@ -128,6 +129,7 @@ class ModuleEndEvent(CallbackEvent):
         self.prediction = prediction
         self.success = success
         self.duration = duration
+        self.inputs = inputs or {}
 
 
 class OptimizationStartEvent(CallbackEvent):

@@ -181,6 +181,7 @@ class Module(ABC, CallbackMixin, ExecutableComponent, Optimizable, Batchable, Se
                         prediction=prediction,
                         success=True,
                         duration=duration,
+                        inputs=validated_inputs,
                     )
                 )
 
